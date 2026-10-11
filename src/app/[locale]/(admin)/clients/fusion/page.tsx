@@ -1,0 +1,10 @@
+import ClientMerge from "@/components/clients/ClientMerge";
+import { initPage, type LocaleParams } from "@/i18n/page";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Doublons et fusion" };
+
+export default async function Page({ params }: LocaleParams) {
+  await initPage(params);
+  return <ClientMerge />;
+}
