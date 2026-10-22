@@ -31,6 +31,8 @@ export const createPatient: Service<PatientInput, string> = (db, ctx, input) =>
       vitals: initialWeight ? [{ id: uid("vit"), date: ctx.now, weightKg: initialWeight, authorId: ctx.user.id }] : [],
       vaccinations: [],
       notes: [],
+      photos: [],
+      exams: [],
       archived: false,
       createdAt: ctx.now.slice(0, 10),
     });
@@ -131,4 +133,32 @@ export const setPatientAlerts: Service<{ patientId: string; allergies: string[];
     p.alerts = input.alerts.filter(Boolean);
     audit(d, ctx, { module: "Patients", action: "Mise à jour des alertes cliniques", target: p.code });
     return { message: "Alertes cliniques mises à jour." };
+  });
+
+/** Photo du dossier patient (data URL — petits fichiers, démo locale). */
+export const addPatientPhoto: Service<{ patientId: string; dataUrl: string; caption: string }> = (db, ctx, input) =>
+  produce(db, (d) => {
+    const p = must(d.patients.find((x) => x.id === input.patientId));
+    if (!input.dataUrl.startsWith("data:image/")) fail("Image requise (PNG, JPG, WebP).");
+    p.photos.unshift({ id: uid("ph"), dataUrl: input.dataUrl, caption: input.caption.trim(), date: ctx.now.slice(0, 10) });
+    audit(d, ctx, { module: "Patients", action: "Ajout de photo", target: `${p.code} — ${p.name}` });
+    return { message: "Photo ajoutée au dossier." };
+  });
+
+export const removePatientPhoto: Service<{ patientId: string; photoId: string }> = (db, ctx, { patientId, photoId }) =>
+  produce(db, (d) => {
+    const p = must(d.patients.find((x) => x.id === patientId));
+    p.photos = p.photos.filter((x) => x.id !== photoId);
+    audit(d, ctx, { module: "Patients", action: "Suppression de photo", target: `${p.code} — ${p.name}` });
+    return { message: "Photo retirée du dossier." };
+  });
+
+/** Examen complémentaire consigné au dossier (radiographie, biologie…). */
+export const addPatientExam: Service<{ patientId: string; type: Patient["exams"][number]["type"]; label: string; result: string; fileName?: string; consultationId?: string }> = (db, ctx, input) =>
+  produce(db, (d) => {
+    const p = must(d.patients.find((x) => x.id === input.patientId));
+    if (!input.label.trim()) fail("Intitulé de l'examen requis.");
+    p.exams.unshift({ id: uid("exm"), date: ctx.now.slice(0, 10), type: input.type, label: input.label.trim(), result: input.result.trim(), fileName: input.fileName, consultationId: input.consultationId, authorId: ctx.user.id });
+    audit(d, ctx, { module: "Patients", action: "Examen complémentaire consigné", target: `${p.code} — ${p.name}`, newValue: input.type });
+    return { message: "Examen consigné au dossier médical." };
   });

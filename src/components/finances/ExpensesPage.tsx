@@ -28,6 +28,17 @@ export default function ExpensesPage() {
   const isDG = user?.roleId === "dg";
   const [f, setF] = useState<Record<string, string>>({});
   const [v, setV] = useState({ accountId: "", category: "Fournitures", label: "", amount: NaN, date: today });
+  const [attachment, setAttachment] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [attError, setAttError] = useState("");
+  const onAttachment = (f?: File) => {
+    setAttError("");
+    setAttachment(null);
+    if (!f) return;
+    if (f.size > 800 * 1024) return setAttError("Justificatif trop volumineux : 800 Ko maximum en démonstration.");
+    const reader = new FileReader();
+    reader.onload = () => setAttachment({ name: f.name, dataUrl: String(reader.result) });
+    reader.readAsDataURL(f);
+  };
   const [decision, setDecision] = useState<{ e: Expense; approve: boolean } | null>(null);
   const rows = useMemo(() => db.expenses.filter((e) => (isDG || !e.confidential) && (!f.status || e.status === f.status) && (!f.category || e.category === f.category)), [db, f, isDG]);
   return (
@@ -57,6 +68,17 @@ export default function ExpensesPage() {
             { key: "cat", header: "Catégorie", render: (e) => e.category },
             { key: "ac", header: "Compte", hideOnMobile: true, render: (e) => accountName(db, e.accountId) },
             { key: "a", header: "Montant", align: "end", sortValue: (e) => e.amount, render: (e) => formatXOF(e.amount) },
+            {
+              key: "j",
+              header: "Justif.",
+              align: "center",
+              render: (e) =>
+                e.attachmentDataUrl ? (
+                  <a href={e.attachmentDataUrl} download={e.attachmentName} onClick={(ev) => ev.stopPropagation()} title={e.attachmentName} className="text-brand-600 hover:underline dark:text-brand-400">Fichier</a>
+                ) : (
+                  "—"
+                ),
+            },
             { key: "r", header: "Demandée par", hideOnMobile: true, render: (e) => userName(db, e.requestedById) },
             { key: "s", header: "Statut", render: (e) => <span className="flex flex-col gap-0.5"><StatusBadge kind="expense" value={e.status} />{!e.withinDelegation && <span className="text-[10px] text-gray-500">Hors délégation</span>}</span> },
             {
@@ -83,7 +105,7 @@ export default function ExpensesPage() {
         footer={
           <>
             <Button size="sm" variant="outline" onClick={create.closeModal}>Annuler</Button>
-            <Button size="sm" disabled={!v.label.trim() || !(v.amount > 0) || !v.accountId} onClick={() => run(createExpense, v).ok && create.closeModal()}>Enregistrer</Button>
+            <Button size="sm" disabled={!v.label.trim() || !(v.amount > 0) || !v.accountId} onClick={() => { if (run(createExpense, { ...v, attachmentName: attachment?.name, attachmentDataUrl: attachment?.dataUrl }).ok) { create.closeModal(); setAttachment(null); } }}>Enregistrer</Button>
           </>
         }
       >
@@ -93,6 +115,14 @@ export default function ExpensesPage() {
           <NumberField label="Montant" required suffix="FCFA" value={v.amount} onChange={(amount) => setV({ ...v, amount })} min={0} step={500} hint={v.amount > db.settings.expenseDelegationAmount ? "Hors délégation : validation DG requise" : undefined} />
           <SelectField label="Compte" required value={v.accountId} onChange={(accountId) => setV({ ...v, accountId })} options={opts.accounts} />
           <TextField label="Date" type="date" value={v.date} onChange={(date) => setV({ ...v, date })} />
+          <div className="sm:col-span-2">
+            <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-400">Justificatif (image, scan ou PDF — optionnel)</p>
+            <label className="block cursor-pointer rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-500 hover:border-brand-300 dark:border-gray-700">
+              {attachment ? attachment.name : "Joindre un fichier…"}
+              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onAttachment(e.target.files?.[0])} />
+            </label>
+            {attError && <p className="mt-1 text-theme-xs text-error-500">{attError}</p>}
+          </div>
         </FormGrid>
       </AppModal>
       <ConfirmDialog isOpen={!!decision} onClose={() => setDecision(null)} title={decision?.approve ? "Approuver la dépense" : "Rejeter la dépense"} message={decision ? `${decision.e.code} — ${decision.e.label} (${formatXOF(decision.e.amount)})` : ""} reasonLabel="Commentaire de décision" tone={decision?.approve ? "primary" : "danger"} onConfirm={(note) => (decision ? run(decideExpense, { id: decision.e.id, approve: decision.approve, note }).ok : false)} />

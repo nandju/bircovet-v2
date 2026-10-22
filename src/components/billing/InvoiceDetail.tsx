@@ -15,7 +15,7 @@ import { PrinterIcon } from "@/icons";
 import { clientName, docTotal, invoiceBalance, invoiceCredited, invoicePaid, isActiveInvoice, maxDiscount, userName } from "@/lib/calc";
 import { formatDate, formatDateTime, formatXOF } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
-import { cancelInvoice, submitInvoice, validateInvoice } from "@/lib/services/invoicesService";
+import { cancelInvoice, convertProforma, setFneStatus, submitInvoice, validateInvoice } from "@/lib/services/invoicesService";
 import { printPage } from "@/utils/export";
 import { useState } from "react";
 import BillingDocument from "./BillingDocument";
@@ -31,6 +31,8 @@ export default function InvoiceDetail({ id }: { id: string }) {
   const inv = db.invoices.find((i) => i.id === id);
   if (!inv) return <p className="text-sm text-gray-500">Document introuvable.</p>;
   const isAvoir = inv.kind === "avoir";
+  const isProforma = inv.kind === "proforma";
+  const converted = isProforma ? db.invoices.find((i) => i.id === inv.convertedToInvoiceId) : undefined;
   const draft = inv.status === "brouillon" || inv.status === "a_valider";
   const payments = db.payments.filter((p) => p.allocations.some((a) => a.invoiceId === inv.id));
   const credits = db.invoices.filter((i) => i.originalInvoiceId === inv.id);
@@ -43,15 +45,20 @@ export default function InvoiceDetail({ id }: { id: string }) {
   return (
     <div className="space-y-4 md:space-y-6">
       <PageBreadcrumb
-        pageTitle={`${isAvoir ? "Avoir" : "Facture"} ${inv.code}`}
-        subtitle={`${clientName(db, inv.clientId)} · ${labelOf("invoice", inv.status)}`}
-        trail={[{ label: isAvoir ? "Avoirs" : "Factures", href: isAvoir ? "/facturation/avoirs" : "/facturation" }]}
+        pageTitle={`${isAvoir ? "Avoir" : isProforma ? "Pro forma" : "Facture"} ${inv.code}`}
+        subtitle={`${clientName(db, inv.clientId)} · ${isProforma ? "Document non engageant" : labelOf("invoice", inv.status)}`}
+        trail={[{ label: isAvoir ? "Avoirs" : isProforma ? "Pro forma" : "Factures", href: isAvoir ? "/facturation/avoirs" : isProforma ? "/facturation/proforma" : "/facturation" }]}
         actions={
           <>
             <Button size="sm" variant="outline" startIcon={<PrinterIcon />} onClick={printPage}>
               Imprimer / PDF
             </Button>
-            {draft && canBill && (
+            {isProforma && !converted && canValidate && (
+              <Button size="sm" onClick={() => { const r = run(convertProforma, { id: inv.id }); if (r.ok && r.data) router.push(`/facturation/factures/${r.data}`); }}>
+                Convertir en facture
+              </Button>
+            )}
+            {!isProforma && draft && canBill && (
               <Button size="sm" variant="outline" onClick={edit.openModal}>
                 Modifier le brouillon
               </Button>
@@ -71,12 +78,12 @@ export default function InvoiceDetail({ id }: { id: string }) {
                 Annuler le brouillon
               </Button>
             )}
-            {!isAvoir && isActiveInvoice(inv) && invoiceBalance(db, inv) > 0 && can("finances", "create") && (
+            {!isAvoir && !isProforma && isActiveInvoice(inv) && invoiceBalance(db, inv) > 0 && can("finances", "create") && (
               <Button size="sm" onClick={pay.openModal}>
                 Enregistrer un paiement
               </Button>
             )}
-            {!isAvoir && isActiveInvoice(inv) && canValidate && (
+            {!isAvoir && !isProforma && isActiveInvoice(inv) && canValidate && (
               <Button size="sm" variant="outline" onClick={() => setCredit(true)}>
                 Corriger par avoir
               </Button>
@@ -85,12 +92,13 @@ export default function InvoiceDetail({ id }: { id: string }) {
         }
       />
       {discountOver && draft && <DemoNotice tone="warning">Remise hors délégation ({maxDiscount(inv.lines)} % &gt; {db.settings.discountDelegationPct} %) : seule une validation par le profil DG est possible.</DemoNotice>}
-      {!draft && !isAvoir && <DemoNotice>Facture validée : elle ne peut plus être modifiée. Toute correction passe par un avoir lié, avec motif.</DemoNotice>}
+      {!draft && !isAvoir && !isProforma && <DemoNotice>Facture validée : elle ne peut plus être modifiée. Toute correction passe par un avoir lié, avec motif.</DemoNotice>}
+      {isProforma && <DemoNotice>Pro forma : document commercial non engageant, hors solde et hors recettes. La conversion crée une facture brouillon distincte.</DemoNotice>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
         <div className="xl:col-span-2">
           <BillingDocument
-            title={isAvoir ? "Avoir" : "Facture"}
+            title={isAvoir ? "Avoir" : isProforma ? "Facture pro forma" : "Facture"}
             code={inv.code}
             date={inv.date}
             secondDate={isAvoir ? undefined : { label: "Échéance", value: inv.dueDate }}
@@ -99,7 +107,7 @@ export default function InvoiceDetail({ id }: { id: string }) {
             lines={inv.lines}
             notes={[inv.notes, isAvoir && original ? `Avoir lié à la facture ${original.code}. Motif : ${inv.correctionReason}` : ""].filter(Boolean).join(" — ")}
             footerRows={
-              isAvoir
+              isAvoir || isProforma
                 ? []
                 : [
                     { label: "Payé", value: formatXOF(invoicePaid(db, inv.id)) },
@@ -118,15 +126,27 @@ export default function InvoiceDetail({ id }: { id: string }) {
                 { label: "Auteur", value: userName(db, inv.authorId) },
                 { label: "Validation", value: inv.validatedById ? `${userName(db, inv.validatedById)} — ${formatDateTime(inv.validatedAt)}` : "—" },
                 { label: "Intégration fiscale", value: inv.fiscalStatus === "a_transmettre_backend" ? "À transmettre (après intégration backend)" : "Non concerné (démo)", wide: true },
+                ...(inv.kind === "facture" ? [{ label: "Distinction FNE", value: <StatusBadge kind="fne" value={inv.fneStatus ?? "non_renseigne"} /> }] : []),
+                ...(converted ? [{ label: "Convertie en", value: converted.code }] : []),
               ]}
             />
             {original && (
               <p className="text-sm">
-                Facture d&apos;origine :{" "}
+                {original.kind === "proforma" ? "Issu du pro forma : " : "Facture d'origine : "}
                 <Link className="font-medium text-brand-600 hover:underline" href={`/facturation/factures/${original.id}`}>
                   {original.code}
                 </Link>
               </p>
+            )}
+            {inv.kind === "facture" && canBill && (
+              <div className="mt-3">
+                <label htmlFor="fne-select" className="mb-1 block text-theme-xs text-gray-500">Marquage FNE (informatif — conformité non simulée)</label>
+                <select id="fne-select" value={inv.fneStatus ?? "non_renseigne"} onChange={(e) => run(setFneStatus, { id: inv.id, fne: e.target.value as NonNullable<typeof inv.fneStatus> })} className="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                  <option value="non_renseigne">Non renseigné</option>
+                  <option value="fne">FNE (informatif)</option>
+                  <option value="hors_fne">Hors FNE</option>
+                </select>
+              </div>
             )}
           </ComponentCard>
           {!isAvoir && (

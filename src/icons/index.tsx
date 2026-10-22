@@ -5,6 +5,7 @@ export { default as ArrowDownIcon } from "./arrow-down.svg";
 export { default as ArrowRightIcon } from "./arrow-right.svg";
 export { default as ArrowUpIcon } from "./arrow-up.svg";
 export { default as AudioIcon } from "./audio.svg";
+export { default as MicrophoneIcon } from "./microphone.svg";
 export { default as BoltIcon } from "./bolt.svg";
 export { default as BoxCubeIcon } from "./box-cube.svg";
 export { default as BoxIconLine } from "./box-line.svg";

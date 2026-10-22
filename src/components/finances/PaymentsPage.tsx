@@ -49,7 +49,7 @@ export default function PaymentsPage() {
         trail={[{ label: "Finances", href: "/finances" }]}
         actions={
           <>
-            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("bircovet-encaissements-demo", ["Réf.", "Date", "Client", "Montant", "Moyen", "Compte", "Nature", "Non affecté", "Référence"], rows.map((p) => [p.code, formatDate(p.date), clientName(db, p.clientId), p.amount, labelOf("paymentMethod", p.method), accountName(db, p.accountId), labelOf("paymentKind", p.kind), paymentUnallocated(p), p.reference]))}>
+            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-encaissements-demo", ["Réf.", "Date", "Client", "Montant", "Moyen", "Compte", "Nature", "Non affecté", "Référence"], rows.map((p) => [p.code, formatDate(p.date), clientName(db, p.clientId), p.amount, labelOf("paymentMethod", p.method), accountName(db, p.accountId), labelOf("paymentKind", p.kind), paymentUnallocated(p), p.reference]))}>
               Export CSV
             </Button>
             <Can module="finances" action="create">

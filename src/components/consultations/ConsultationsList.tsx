@@ -48,7 +48,7 @@ export default function ConsultationsList() {
         subtitle={`${pending} dossier(s) en attente de validation`}
         actions={
           <>
-            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("bircovet-consultations-demo", ["Code", "Date", "Patient", "Client", "Motif", "Responsable", "Statut clinique", "Statut financier"], rows.map((c) => [c.code, formatDateTime(c.date), patientName(db, c.patientId), clientName(db, c.clientId), c.reason, userName(db, c.vetId), labelOf("clinical", c.status), labelOf("financial", c.financialStatus)]))}>
+            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-consultations-demo", ["Code", "Date", "Patient", "Client", "Motif", "Responsable", "Statut clinique", "Statut financier"], rows.map((c) => [c.code, formatDateTime(c.date), patientName(db, c.patientId), clientName(db, c.clientId), c.reason, userName(db, c.vetId), labelOf("clinical", c.status), labelOf("financial", c.financialStatus)]))}>
               Export CSV
             </Button>
             <Can module="consultations" action="create">

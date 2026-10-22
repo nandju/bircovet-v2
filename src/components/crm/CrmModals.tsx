@@ -40,7 +40,18 @@ export function TaskModal({ isOpen, onClose, task, preset }: { isOpen: boolean; 
         <SelectField label="Responsable" required value={v.assigneeId} onChange={(x) => set("assigneeId", x)} options={opts.users} />
         <SelectField label="Catégorie" value={v.category} onChange={(x) => set("category", x as TaskInput["category"])} options={optionsOf("taskCategory")} />
         <SelectField label="Priorité" value={v.priority} onChange={(x) => set("priority", x as TaskInput["priority"])} options={optionsOf("priority")} />
-        <TextField label="Échéance" type="date" value={v.dueDate} onChange={(x) => set("dueDate", x)} disabled={!!task} hint={task ? "Utilisez « Reporter » pour changer l'échéance." : undefined} />
+        <div>
+          <TextField label="Échéance" type="date" value={v.dueDate} onChange={(x) => set("dueDate", x)} disabled={!!task} hint={task ? "Utilisez « Reporter » pour changer l'échéance." : undefined} />
+          {!task && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {[3, 7, 14, 30, 60, 120].map((d) => (
+                <button key={d} type="button" onClick={() => set("dueDate", addDays(today, d))} className="rounded-full border border-gray-200 px-2 py-0.5 text-[11px] text-gray-500 hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400">
+                  J+{d}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <SelectField label="Client associé" value={v.clientId ?? ""} onChange={(x) => setV({ ...v, clientId: x || undefined, patientId: undefined })} options={opts.clients} allowEmpty placeholder="Aucun" />
         <SelectField label="Patient associé" value={v.patientId ?? ""} onChange={(x) => set("patientId", x || undefined)} options={opts.patientsOf(v.clientId)} allowEmpty placeholder="Aucun" disabled={!v.clientId} />
         <TextAreaField label="Description" value={v.description} onChange={(x) => set("description", x)} rows={3} className="sm:col-span-2" />

@@ -25,7 +25,7 @@ export default function MissionsList() {
   const create = useModal();
   const [f, setF] = useState<Record<string, string>>({});
   const [month, setMonth] = useState(() => new Date());
-  const rows = useMemo(() => db.missions.filter((m) => !f.status || m.status === f.status), [db, f]);
+  const rows = useMemo(() => db.missions.filter((m) => (!f.status || m.status === f.status) && (!f.category || m.category === f.category) && (!f.service || m.serviceType === f.service)), [db, f]);
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const offset = (first.getDay() + 6) % 7;
   const cells = Array.from({ length: 42 }, (_, i) => new Date(month.getFullYear(), month.getMonth(), 1 - offset + i));
@@ -41,7 +41,15 @@ export default function MissionsList() {
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
         <Panel className="xl:col-span-2">
-          <FilterBar values={f} onChange={(k, v) => setF((s) => ({ ...s, [k]: v }))} filters={[{ key: "status", label: "Tous statuts", options: optionsOf("mission") }]} />
+          <FilterBar
+            values={f}
+            onChange={(k, v) => setF((s) => ({ ...s, [k]: v }))}
+            filters={[
+              { key: "status", label: "Tous statuts", options: optionsOf("mission") },
+              { key: "category", label: "Toutes catégories", options: optionsOf("missionCategory") },
+              { key: "service", label: "Toutes prestations", options: optionsOf("serviceType") },
+            ]}
+          />
           <DataTable
             rows={rows}
             rowKey={(m) => m.id}
@@ -49,6 +57,7 @@ export default function MissionsList() {
             initialSort={{ key: "d", dir: "desc" }}
             columns={[
               { key: "c", header: "Mission", primary: true, render: (m) => <span className="flex flex-col"><span className="font-medium">{m.code}</span><span className="text-theme-xs text-gray-500">{m.objective}</span></span> },
+              { key: "cat", header: "Catégorie", render: (m) => <StatusBadge kind="missionCategory" value={m.category} />, hideOnMobile: true },
               { key: "d", header: "Date", sortValue: (m) => m.date, render: (m) => formatDate(m.date) },
               { key: "l", header: "Lieu", render: (m) => m.location, hideOnMobile: true },
               { key: "r", header: "Responsable", render: (m) => userName(db, m.leaderId) },

@@ -1,5 +1,5 @@
 /**
- * BIRCOVET — modèle de données frontend (démonstration).
+ * Cliva — modèle de données frontend (démonstration).
  * Ces types décrivent la forme des entités manipulées localement.
  * Ils sont conçus pour être remplacés/alignés sur les DTO du futur backend.
  */
@@ -142,6 +142,36 @@ export interface OwnerPeriod {
   reason: string;
 }
 
+export type ExamType =
+  | "radiographie"
+  | "echographie"
+  | "biochimie"
+  | "hematologie"
+  | "endoscopie"
+  | "cytologie"
+  | "autre";
+
+/** Examen complémentaire consigné dans le dossier patient. */
+export interface PatientExam {
+  id: ID;
+  date: ISODate;
+  type: ExamType;
+  label: string;
+  result: string;
+  consultationId?: ID;
+  /** Nom de fichier joint (contenu non persisté en démo). */
+  fileName?: string;
+  authorId: ID;
+}
+
+export interface PatientPhoto {
+  id: ID;
+  /** Data URL de l'image (persistée en démo — petits fichiers uniquement). */
+  dataUrl: string;
+  caption: string;
+  date: ISODate;
+}
+
 export interface Patient {
   id: ID;
   code: string;
@@ -165,6 +195,8 @@ export interface Patient {
   vitals: Vital[];
   vaccinations: Vaccination[];
   notes: Note[];
+  photos: PatientPhoto[];
+  exams: PatientExam[];
   archived: boolean;
   createdAt: ISODate;
 }
@@ -184,12 +216,22 @@ export interface FarmBuilding {
   name: string;
   kind: string;
   capacity: number;
+  /** Superficie au sol (m²), si renseignée. */
+  area?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  notes?: string;
 }
 
 export interface FarmLot {
   id: ID;
   name: string;
   species: string;
+  /** Catégorie zootechnique libre (poulets de chair, pondeuses, truies, lapereaux…). */
+  category?: string;
+  /** Âge ou tranche d'âge des effectifs (texte libre, ex. « 3–8 semaines »). */
+  ageRange?: string;
   buildingId?: ID;
   startDate: ISODate;
   status: "actif" | "cloture";
@@ -445,10 +487,28 @@ export interface MissionStockLine {
   reconciled: boolean;
 }
 
+export type MissionCategory = "exploitation" | "domicile" | "interne" | "urgence" | "hors_horaires";
+
+export type ServiceType = "intervention" | "consultance" | "formation_fdfp" | "insemination" | "autre";
+
+/** Action à mener issue d'une mission/visite (responsable + échéance). */
+export interface MissionAction {
+  id: ID;
+  label: string;
+  assigneeId?: ID;
+  dueDate?: ISODate;
+  done: boolean;
+  note?: string;
+}
+
 export interface Mission {
   id: ID;
   code: string;
   objective: string;
+  category: MissionCategory;
+  serviceType: ServiceType;
+  /** Libellé libre lorsque serviceType = "autre". */
+  serviceLabel?: string;
   date: ISODate;
   endDate: ISODate;
   location: string;
@@ -459,6 +519,7 @@ export interface Mission {
   clientIds: ID[];
   plannedInterventions: string[];
   interventionsDone: string[];
+  actionItems: MissionAction[];
   stock: MissionStockLine[];
   observedHeadcounts: { farmId: ID; lotLabel: string; count: number }[];
   report: string;
@@ -493,6 +554,18 @@ export interface Product {
   supplierId: ID;
   status: "actif" | "inactif";
   form: string;
+  /** Principe actif / DCI (notice). */
+  activeIngredient?: string;
+  /** Espèces ciblées (texte libre issu de la notice). */
+  targetSpecies?: string;
+  /** Posologie documentée (notice du fabricant). */
+  posologie?: string;
+  contraIndications?: string;
+  conservation?: string;
+  /** Produit à usage humain — jamais d'extrapolation automatique de posologie. */
+  humanUse?: boolean;
+  /** Dosage structuré validé pour le calculateur (issu de la notice, pas inventé). */
+  dosage?: { perKg: number; unit: string; species?: string; note?: string };
 }
 
 export type LotStatus = "disponible" | "reserve" | "quarantaine" | "perime";
@@ -691,7 +764,8 @@ export type InvoiceStatus =
 export interface Invoice {
   id: ID;
   code: string;
-  kind: "facture" | "avoir";
+  /** "proforma" : document commercial non engageant, hors balance et sans règlement. */
+  kind: "facture" | "avoir" | "proforma";
   clientId: ID;
   payerName: string;
   establishmentId: ID;
@@ -702,8 +776,16 @@ export interface Invoice {
   authorId: ID;
   validatedById?: ID;
   validatedAt?: ISODate;
-  originalInvoiceId?: ID; // pour un avoir
+  originalInvoiceId?: ID; // pour un avoir ou une facture issue d'un pro forma
+  /** Facture créée à partir de ce document (pro forma converti). */
+  convertedToInvoiceId?: ID;
   creditNoteIds: ID[];
+  /**
+   * Distinction FNE / hors FNE (champ informatif de démonstration).
+   * La conformité FNE réelle nécessite l'intégration du système officiel —
+   * non simulée dans cet environnement.
+   */
+  fneStatus?: "fne" | "hors_fne" | "non_renseigne";
   correctionReason?: string;
   quoteId?: ID;
   fiscalStatus: "non_concerne_demo" | "a_transmettre_backend";
@@ -755,6 +837,9 @@ export interface Expense {
   decidedAt?: ISODate;
   withinDelegation: boolean;
   confidential?: boolean;
+  /** Justificatif joint (image/scan/PDF — nom + data URL en démo). */
+  attachmentName?: string;
+  attachmentDataUrl?: string;
 }
 
 export interface AccountTransfer {
@@ -922,6 +1007,95 @@ export interface DocumentItem {
   localOnly?: boolean; // fichier sélectionné dans ce navigateur (URL temporaire non persistée)
 }
 
+/* ---------------- Dépôt-vente ---------------- */
+
+export type ConsignmentStatus = "en_depot" | "en_tresorerie" | "a_credit" | "solde" | "retourne";
+
+/** Produit confié en dépôt-vente — jamais assimilé automatiquement à une vente encaissée. */
+export interface Consignment {
+  id: ID;
+  code: string;
+  clientId: ID;
+  productId: ID;
+  qty: number;
+  unitPrice: number;
+  date: ISODate;
+  status: ConsignmentStatus;
+  note: string;
+  history: { date: ISODate; userId: ID; action: string; note?: string }[];
+}
+
+/* ---------------- Espace équipe & réunions ---------------- */
+
+export interface StaffPost {
+  id: ID;
+  authorId: ID;
+  date: ISODate;
+  text: string;
+  /** Information importante épinglée en tête. */
+  pinned: boolean;
+  missionId?: ID;
+  comments: { id: ID; authorId: ID; date: ISODate; text: string }[];
+}
+
+export interface Meeting {
+  id: ID;
+  code: string;
+  title: string;
+  date: ISODate;
+  attendeeIds: ID[];
+  /** Compte rendu (rédigé ou généré — toujours modifiable et validé avant diffusion). */
+  report: string;
+  reportValidated: boolean;
+  actionItems: MissionAction[];
+}
+
+/* ---------------- Licences (suivi commercial, pas de paiement réel) ---------------- */
+
+export interface LicenceRecord {
+  id: ID;
+  orgName: string;
+  period: string;
+  dueDate: ISODate;
+  amount: number;
+  status: "payee" | "en_attente" | "en_retard";
+  history: { date: ISODate; userId?: ID; action: string; amount?: number; note?: string }[];
+}
+
+/* ---------------- Veille (hors ligne en démo) ---------------- */
+
+export interface NewsItem {
+  id: ID;
+  title: string;
+  source: string;
+  date: ISODate;
+  summary: string;
+  topic: "sante_animale" | "pharmacie_vet" | "elevage" | "reglementation";
+}
+
+/* ---------------- Revue mensuelle des commandes ---------------- */
+
+export interface OrderReview {
+  id: ID;
+  /** Mois au format YYYY-MM. */
+  month: string;
+  comment: string;
+  userId: ID;
+  date: ISODate;
+}
+
+/* ---------------- Annonce configurable du tableau de bord ---------------- */
+
+export interface Promo {
+  active: boolean;
+  title: string;
+  text: string;
+  imageDataUrl?: string;
+  link?: string;
+  from?: ISODate;
+  to?: ISODate;
+}
+
 /* ---------------- Transverse ---------------- */
 
 export interface AuditEntry {
@@ -978,6 +1152,18 @@ export interface AIConversation {
   messages: AIMessage[];
 }
 
+/** Personnalisation visuelle de la plateforme (par organisation). */
+export interface Branding {
+  /** Nom de la plateforme affiché (ex. « Cliva »). */
+  platformName: string;
+  /** Signature / slogan affiché dans l'interface. */
+  slogan: string;
+  /** Logo personnalisé (data URL, conservé dans les paramètres de l'organisation). */
+  logoDataUrl: string;
+  colors: { primary: string; secondary: string; tertiary: string };
+  font: "outfit" | "inter" | "dm-sans" | "system";
+}
+
 export interface Settings {
   clinicName: string;
   legalName: string;
@@ -1002,6 +1188,9 @@ export interface Settings {
   documentFooter: string;
   invoicePrefix: string;
   quotePrefix: string;
+  branding: Branding;
+  /** Encart publicitaire optionnel du tableau de bord. */
+  promo: Promo;
 }
 
 export interface DemoDB {
@@ -1047,6 +1236,12 @@ export interface DemoDB {
   notifications: AppNotification[];
   syncQueue: SyncOp[];
   aiConversations: AIConversation[];
+  consignments: Consignment[];
+  staffPosts: StaffPost[];
+  meetings: Meeting[];
+  licences: LicenceRecord[];
+  news: NewsItem[];
+  orderReviews: OrderReview[];
   settings: Settings;
   counters: Record<string, number>;
 }

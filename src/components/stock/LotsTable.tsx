@@ -24,7 +24,7 @@ export default function LotsTable({ rows, showProduct = true }: { rows: StockLot
         rowClassName={(l) => (l.status === "perime" || l.expiryDate < today ? "bg-error-25/60 dark:bg-error-500/5" : l.status === "quarantaine" ? "bg-warning-25/60 dark:bg-warning-500/5" : "")}
         columns={[
           { key: "r", header: "Lot", primary: true, sortValue: (l) => l.ref, render: (l) => <span className="flex flex-col"><span className="font-medium">{l.ref}</span>{showProduct && <span className="text-theme-xs text-gray-500">{productName(db, l.productId)}</span>}</span> },
-          { key: "est", header: "Établissement / emplacement", hideOnMobile: true, render: (l) => `${establishmentName(db, l.establishmentId).replace("BIRCOVET ", "")} · ${l.location}` },
+          { key: "est", header: "Établissement / emplacement", hideOnMobile: true, render: (l) => `${establishmentName(db, l.establishmentId).replace("Cliva ", "")} · ${l.location}` },
           { key: "f", header: "Fournisseur", hideOnMobile: true, render: (l) => supplierName(db, l.supplierId) },
           { key: "rc", header: "Réception", render: (l) => formatDate(l.receivedAt), hideOnMobile: true },
           { key: "e", header: "Péremption", sortValue: (l) => l.expiryDate, render: (l) => { const d = daysBetween(today, l.expiryDate); return <span className={d < 0 ? "font-medium text-error-600" : d <= db.settings.expiryAlertDays ? "font-medium text-warning-600" : ""}>{formatDate(l.expiryDate)} {d < 0 ? "(périmé)" : d <= db.settings.expiryAlertDays ? `(${d} j)` : ""}</span>; } },

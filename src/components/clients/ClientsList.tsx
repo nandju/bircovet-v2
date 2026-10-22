@@ -72,7 +72,7 @@ export default function ClientsList() {
 
   const doExport = () =>
     exportCsv(
-      "bircovet-clients-demo",
+      "cliva-clients-demo",
       ["Code", "Nom", "Type", "Téléphone", "E-mail", "Ville", "Segment", "Statut", "Créé le", "Impayés (XOF)"],
       rows.map((c) => [c.code, c.name, labelOf("clientType", c.type), `${c.phoneCode} ${c.phone}`, c.email, c.city, labelOf("segment", c.segment), labelOf("client", c.status), formatDate(c.createdAt), clientOutstanding(db, c.id)]),
     );

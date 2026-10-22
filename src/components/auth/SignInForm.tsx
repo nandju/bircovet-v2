@@ -1,6 +1,6 @@
 "use client";
 
-import BircovetLogo from "@/components/common/BircovetLogo";
+import ClivaLogo from "@/components/common/ClivaLogo";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
@@ -49,7 +49,7 @@ export default function SignInForm() {
   return (
     <div className="flex w-full flex-1 flex-col overflow-y-auto px-5 py-8 sm:px-8 lg:w-1/2">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
-        <BircovetLogo className="mb-8 lg:hidden" />
+        <ClivaLogo className="mb-8 lg:hidden" />
         <div className="mb-6">
           <h1 className="mb-1.5 text-title-sm font-semibold text-gray-800 dark:text-white/90">{t("title")}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
@@ -60,7 +60,7 @@ export default function SignInForm() {
             <Label htmlFor="login-email">
               Identifiant (e-mail) <span className="text-error-500">*</span>
             </Label>
-            <Input id="login-email" type="email" autoComplete="username" placeholder="prenom@bircovet.demo" value={email} onChange={(e) => setEmail(e.target.value)} error={!!errors.email} hint={errors.email} />
+            <Input id="login-email" type="email" autoComplete="username" placeholder="prenom@cliva.demo" value={email} onChange={(e) => setEmail(e.target.value)} error={!!errors.email} hint={errors.email} />
           </div>
           <div>
             <Label htmlFor="login-password">

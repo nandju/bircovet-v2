@@ -48,7 +48,7 @@ export default function UsersPage() {
             { key: "n", header: "Utilisateur", primary: true, sortValue: (u) => u.name, render: (u) => <span className="flex items-center gap-3"><AvatarInitials name={u.name} size="sm" /><span className="flex flex-col"><span className="font-medium">{u.name}</span><span className="text-theme-xs text-gray-500">{u.email}</span></span></span> },
             { key: "r", header: "Rôle", sortValue: (u) => u.roleId, render: (u) => ROLE_LABELS[u.roleId] },
             { key: "t", header: "Fonction", hideOnMobile: true, render: (u) => u.title },
-            { key: "e", header: "Établissement", render: (u) => establishmentName(db, u.establishmentId).replace("BIRCOVET ", "") },
+            { key: "e", header: "Établissement", render: (u) => establishmentName(db, u.establishmentId).replace("Cliva ", "") },
             { key: "c", header: "Créé le", hideOnMobile: true, render: (u) => formatDate(u.createdAt) },
             { key: "s", header: "Statut", render: (u) => <StatusBadge kind="user" value={String(u.active)} /> },
             {

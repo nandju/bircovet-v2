@@ -61,7 +61,7 @@ export default function ReportsPage() {
   }, [db, period, est]);
 
   const exportSummary = () =>
-    exportCsv(`bircovet-rapport-${period.from}-${period.to}`, ["Indicateur", "Valeur"], [
+    exportCsv(`cliva-rapport-${period.from}-${period.to}`, ["Indicateur", "Valeur"], [
       ["Période", `${formatDate(period.from)} → ${formatDate(period.to)}`],
       ["Établissement", est ? opts.establishments.find((e) => e.value === est)?.label : "Tous"],
       ["Consultations", s.consultations],
@@ -172,7 +172,7 @@ export default function ReportsPage() {
 
       {cat === "etablissements" && (
         <ComponentCard title="Performance par établissement">
-          <BarChart labels={byEst.map((e) => e.name.replace("BIRCOVET ", ""))} series={[{ name: "Consultations", data: byEst.map((e) => e.consultations) }, { name: "Rendez-vous", data: byEst.map((e) => e.appointments) }]} height={260} />
+          <BarChart labels={byEst.map((e) => e.name.replace("Cliva ", ""))} series={[{ name: "Consultations", data: byEst.map((e) => e.consultations) }, { name: "Rendez-vous", data: byEst.map((e) => e.appointments) }]} height={260} />
           <DataTable
             rows={byEst}
             rowKey={(e) => e.id}

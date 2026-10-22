@@ -16,8 +16,8 @@ import { refreshDerived, type Service } from "@/lib/services/core";
 import type { ActionCtx, DemoDB, Establishment, ServiceResult, SessionState, User } from "@/lib/types";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-export const DB_KEY = "bircovet.demo.db";
-export const SESSION_KEY = "bircovet.demo.session";
+export const DB_KEY = "cliva.demo.db";
+export const SESSION_KEY = "cliva.demo.session";
 const EMPTY_SESSION: SessionState = { userId: null, establishmentId: null, offline: false };
 
 export const nowIso = () => {

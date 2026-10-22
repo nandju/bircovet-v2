@@ -29,7 +29,7 @@ export default function MovementsPage() {
         subtitle="Historique traçable : chaque mouvement est relié à son opération d'origine"
         trail={[{ label: "Stock", href: "/stock" }]}
         actions={
-          <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("bircovet-mouvements-demo", ["Date", "Type", "Article", "Lot", "Quantité", "Origine", "Utilisateur"], rows.map((m) => [formatDateTime(m.date), labelOf("movement", m.type), productName(db, m.productId), lotRef(db, m.lotId), m.qty, m.note, userName(db, m.userId)]))}>
+          <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-mouvements-demo", ["Date", "Type", "Article", "Lot", "Quantité", "Origine", "Utilisateur"], rows.map((m) => [formatDateTime(m.date), labelOf("movement", m.type), productName(db, m.productId), lotRef(db, m.lotId), m.qty, m.note, userName(db, m.userId)]))}>
             Export CSV
           </Button>
         }

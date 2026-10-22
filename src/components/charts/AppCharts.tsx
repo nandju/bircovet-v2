@@ -11,7 +11,7 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   loading: () => <Skeleton className="h-full min-h-48 w-full" />,
 });
 
-/** Palette BIRCOVET (copiée du thème @theme : brand, tertiary, secondary, warning, error…). */
+/** Palette Cliva (copiée du thème @theme : brand, tertiary, secondary, warning, error…). */
 export const CHART_COLORS = ["#04a154", "#019cc8", "#6ab391", "#f79009", "#f04438", "#7a5af8", "#ee46bc", "#98a2b3"];
 
 const fmtShort = (v: number) => (Math.abs(v) >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)} M` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)} k` : `${Math.round(v)}`);

@@ -4,7 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 
 export const metadata: Metadata = {
   title: "Connexion",
-  description: "Connexion à la plateforme BIRCOVET (démonstration).",
+  description: "Connexion à la plateforme Cliva (démonstration).",
 };
 
 export default async function SignIn({ params }: { params: Promise<{ locale: string }> }) {

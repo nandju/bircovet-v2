@@ -85,3 +85,17 @@ export const restoreBackup: Service<{ json: string }> = (db, ctx, { json }) => {
   parsed.audit.unshift({ id: uid("aud"), date: ctx.now, userId: ctx.user.id, module: "Démonstration", action: "Restauration d'une sauvegarde", target: "Environnement complet" });
   return { ok: true, db: parsed, message: "Sauvegarde de démonstration restaurée." };
 };
+
+/* ---------------- Suivi des licences (enregistrement, pas de paiement réel) ---------------- */
+
+/** Marque une échéance de licence comme payée — confirmation saisie manuellement. */
+export const recordLicencePayment: Service<{ id: string; amount: number; note: string }, string> = (db, ctx, input) =>
+  produce(db, (d) => {
+    requireRole(ctx, ["dg"], "suivi des licences");
+    const l = must(d.licences.find((x) => x.id === input.id));
+    if (l.status === "payee") fail("Licence déjà réglée.");
+    l.status = "payee";
+    l.history.push({ date: ctx.now, userId: ctx.user.id, action: "Paiement confirmé (saisie manuelle — démonstration)", amount: input.amount || l.amount, note: input.note });
+    audit(d, ctx, { module: "Administration", action: "Paiement de licence confirmé", target: l.orgName, newValue: String(input.amount || l.amount) });
+    return { message: "Paiement de licence enregistré (confirmation manuelle — aucun encaissement réel)." };
+  });

@@ -37,7 +37,7 @@ export default function Catalog() {
         trail={[{ label: "Stock", href: "/stock" }]}
         actions={
           <>
-            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("bircovet-catalogue-demo", ["Code", "Nom", "Catégorie", "Unité achat", "Unité stock", "Unité vente", "Conversion", "Seuil", "Prix achat", "Prix vente", "Fournisseur", "Stock total", "Statut"], rows.map((p) => [p.code, p.name, labelOf("category", p.category), p.purchaseUnit, p.stockUnit, p.saleUnit, p.conversion, p.alertThreshold, p.purchasePrice, p.salePrice, supplierName(db, p.supplierId), productStock(db, p.id, undefined, today), labelOf("product", p.status)]))}>
+            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-catalogue-demo", ["Code", "Nom", "Catégorie", "Unité achat", "Unité stock", "Unité vente", "Conversion", "Seuil", "Prix achat", "Prix vente", "Fournisseur", "Stock total", "Statut"], rows.map((p) => [p.code, p.name, labelOf("category", p.category), p.purchaseUnit, p.stockUnit, p.saleUnit, p.conversion, p.alertThreshold, p.purchasePrice, p.salePrice, supplierName(db, p.supplierId), productStock(db, p.id, undefined, today), labelOf("product", p.status)]))}>
               Export CSV
             </Button>
             <Can module="stock" action="create">

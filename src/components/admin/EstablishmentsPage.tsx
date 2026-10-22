@@ -23,7 +23,7 @@ export default function EstablishmentsPage() {
   useEffect(() => {
     if (!modal.isOpen) return;
     const e = editing;
-    setV({ name: e?.name ?? "BIRCOVET ", city: e?.city ?? "", address: e?.address ?? "", phone: e?.phone ?? "", email: e?.email ?? "", slotMinutes: e?.slotMinutes ?? 30, openingHours: e?.openingHours ?? "Lun–Ven 08:00–17:00", active: e?.active ?? true, resources: (e?.resources ?? ["Salle de consultation"]).join("\n"), locations: (e?.locations ?? ["Pharmacie"]).join("\n"), cages: (e?.cages ?? []).join("\n") });
+    setV({ name: e?.name ?? "Cliva ", city: e?.city ?? "", address: e?.address ?? "", phone: e?.phone ?? "", email: e?.email ?? "", slotMinutes: e?.slotMinutes ?? 30, openingHours: e?.openingHours ?? "Lun–Ven 08:00–17:00", active: e?.active ?? true, resources: (e?.resources ?? ["Salle de consultation"]).join("\n"), locations: (e?.locations ?? ["Pharmacie"]).join("\n"), cages: (e?.cages ?? []).join("\n") });
   }, [modal.isOpen, editing]);
   const split = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
   const save = () => {

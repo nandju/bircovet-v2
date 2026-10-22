@@ -6,7 +6,10 @@ import { applyMovement } from "./inventoryService";
 import { buildInvoice } from "./invoicesService";
 import { queueIfOffline } from "./syncService";
 
-export type MissionInput = Pick<Mission, "objective" | "date" | "endDate" | "location" | "leaderId" | "teamIds" | "farmIds" | "clientIds" | "plannedInterventions">;
+export type MissionInput = Pick<
+  Mission,
+  "objective" | "category" | "serviceType" | "serviceLabel" | "date" | "endDate" | "location" | "leaderId" | "teamIds" | "farmIds" | "clientIds" | "plannedInterventions"
+>;
 
 export const createMission: Service<MissionInput, string> = (db, ctx, input) =>
   produce(db, (d) => {
@@ -15,7 +18,7 @@ export const createMission: Service<MissionInput, string> = (db, ctx, input) =>
     if (input.endDate < input.date) fail("La date de fin précède la date de début.");
     const id = uid("mis");
     const code = nextCode(d, "mission", "MIS");
-    d.missions.unshift({ ...input, id, code, establishmentId: ctx.establishmentId, interventionsDone: [], stock: [], observedHeadcounts: [], report: "", status: "brouillon" });
+    d.missions.unshift({ ...input, id, code, establishmentId: ctx.establishmentId, interventionsDone: [], stock: [], observedHeadcounts: [], report: "", actionItems: [], status: "brouillon" });
     audit(d, ctx, { module: "Missions", action: "Création", target: code });
     return { message: `Mission ${code} créée en brouillon.`, data: id };
   });
@@ -36,6 +39,23 @@ const FLOW: Record<MissionStatus, MissionStatus[]> = {
   annulee: [],
 };
 export const missionTransitions = (s: MissionStatus) => FLOW[s];
+
+export const addMissionAction: Service<{ id: string; label: string; assigneeId?: string; dueDate?: string }> = (db, ctx, { id, label, assigneeId, dueDate }) =>
+  produce(db, (d) => {
+    const m = must(d.missions.find((x) => x.id === id));
+    if (!label.trim()) fail("Libellé d'action requis.");
+    m.actionItems.push({ id: uid("ma"), label: label.trim(), assigneeId, dueDate, done: false });
+    return { message: "Action à mener ajoutée." };
+  });
+
+export const toggleMissionAction: Service<{ id: string; actionId: string; note?: string }> = (db, ctx, { id, actionId, note }) =>
+  produce(db, (d) => {
+    const m = must(d.missions.find((x) => x.id === id));
+    const a = must(m.actionItems.find((x) => x.id === actionId), "Action introuvable.");
+    a.done = !a.done;
+    a.note = note ?? a.note;
+    return { message: a.done ? "Action marquée réalisée." : "Action rouverte." };
+  });
 
 export const setMissionStatus: Service<{ id: string; status: MissionStatus; reason?: string }> = (db, ctx, { id, status, reason }) =>
   produce(db, (d) => {

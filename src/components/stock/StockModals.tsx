@@ -2,7 +2,7 @@
 
 import AppModal from "@/components/common/AppModal";
 import DemoNotice from "@/components/common/DemoNotice";
-import { FormGrid, NumberField, SelectField, TextAreaField, TextField } from "@/components/form/Field";
+import { CheckField, FormGrid, NumberField, SelectField, TextAreaField, TextField } from "@/components/form/Field";
 import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
 import { useOptions } from "@/hooks/useOptions";
@@ -65,6 +65,24 @@ export function ProductFormModal({ isOpen, onClose, product, onCreated }: { isOp
         <div />
         <TextAreaField label="Description" value={v.description} onChange={(x) => set("description", x)} rows={2} className="sm:col-span-3" />
       </FormGrid>
+      <p className="mt-4 mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Notice et informations de sécurité</p>
+      <FormGrid cols={3}>
+        <TextField label="Principe actif / DCI" value={v.activeIngredient ?? ""} onChange={(x) => set("activeIngredient", x)} />
+        <TextField label="Espèces ciblées" value={v.targetSpecies ?? ""} onChange={(x) => set("targetSpecies", x)} placeholder="Bovins, volailles…" />
+        <TextField label="Conservation" value={v.conservation ?? ""} onChange={(x) => set("conservation", x)} placeholder="Ex. 2–8 °C" />
+        <TextAreaField label="Posologie documentée (notice)" value={v.posologie ?? ""} onChange={(x) => set("posologie", x)} rows={2} className="sm:col-span-2" />
+        <TextAreaField label="Contre-indications" value={v.contraIndications ?? ""} onChange={(x) => set("contraIndications", x)} rows={2} />
+        <div className="flex items-end sm:col-span-3">
+          <CheckField label="Produit à usage humain — aucune posologie humaine extrapolable aux animaux" checked={v.humanUse ?? false} onChange={(x) => set("humanUse", x)} />
+        </div>
+      </FormGrid>
+      <p className="mt-4 mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Dosage structuré <span className="font-normal text-theme-xs text-gray-400">(validé, issu de la notice — utilisé par le calculateur de conseil)</span></p>
+      <FormGrid cols={3}>
+        <NumberField label="Dose par kg" value={v.dosage?.perKg ?? NaN} onChange={(x) => set("dosage", x > 0 ? { ...(v.dosage ?? { perKg: 0, unit: "ml/kg" }), perKg: x } : undefined)} min={0} step={0.1} />
+        <TextField label="Unité" value={v.dosage?.unit ?? ""} onChange={(x) => set("dosage", v.dosage ? { ...v.dosage, unit: x } : v.dosage)} placeholder="ml/kg, mg/kg…" disabled={!v.dosage} />
+        <TextField label="Espèces (dosage)" value={v.dosage?.species ?? ""} onChange={(x) => set("dosage", v.dosage ? { ...v.dosage, species: x } : v.dosage)} placeholder="Volailles" disabled={!v.dosage} />
+      </FormGrid>
+      <p className="mt-2 text-theme-xs text-gray-400">Ne renseigner que des valeurs réellement documentées par la notice — le calculateur n&apos;invente aucune posologie.</p>
     </AppModal>
   );
 }

@@ -44,7 +44,7 @@ export function generateAIResponse(db: DemoDB, prompt: string): AIAnswer {
       return {
         scenario: "refus",
         references: [],
-        content: `Je ne peux pas ${what}. Cette décision relève exclusivement d'un professionnel habilité et des validations prévues dans BIRCOVET.\n\nJe peux en revanche : résumer un dossier fictif, préparer un brouillon de compte rendu à partir de consignes déjà validées, rechercher dans la bibliothèque documentaire ou signaler des anomalies administratives.`,
+        content: `Je ne peux pas ${what}. Cette décision relève exclusivement d'un professionnel habilité et des validations prévues dans Cliva.\n\nJe peux en revanche : résumer un dossier fictif, préparer un brouillon de compte rendu à partir de consignes déjà validées, rechercher dans la bibliothèque documentaire ou signaler des anomalies administratives.`,
       };
 
   if (/anomal|incoheren|verifi/.test(p)) {
@@ -104,7 +104,7 @@ export function generateAIResponse(db: DemoDB, prompt: string): AIAnswer {
     return {
       scenario: "cr",
       references: [{ label: c.code, href: `/consultations/${c.id}` }],
-      content: `Madame, Monsieur ${clientName(db, c.clientId)},\n\nSuite à la consultation de ${patientName(db, c.patientId)} du ${formatDate(c.date)} pour « ${c.reason} », voici les consignes validées par ${userName(db, c.vetId)} :\n\n${c.carePlan}\n${c.followUpDate ? `\nUn contrôle est recommandé autour du ${formatDate(c.followUpDate)}.` : ""}\n\nN'hésitez pas à contacter la clinique pour toute question.\nL'équipe BIRCOVET\n\n(Texte reformulé à partir des consignes validées — aucune information clinique ajoutée.)`,
+      content: `Madame, Monsieur ${clientName(db, c.clientId)},\n\nSuite à la consultation de ${patientName(db, c.patientId)} du ${formatDate(c.date)} pour « ${c.reason} », voici les consignes validées par ${userName(db, c.vetId)} :\n\n${c.carePlan}\n${c.followUpDate ? `\nUn contrôle est recommandé autour du ${formatDate(c.followUpDate)}.` : ""}\n\nN'hésitez pas à contacter la clinique pour toute question.\nL'équipe Cliva\n\n(Texte reformulé à partir des consignes validées — aucune information clinique ajoutée.)`,
     };
   }
 

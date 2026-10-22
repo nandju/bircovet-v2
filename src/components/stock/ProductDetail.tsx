@@ -51,14 +51,27 @@ export default function ProductDetail({ id }: { id: string }) {
               { label: "Prix de vente", value: p.salePrice ? formatXOF(p.salePrice) : "Non vendu" },
               { label: "Seuil d'alerte", value: p.alertThreshold },
               { label: "Fournisseur", value: supplierName(db, p.supplierId) },
+              { label: "Principe actif / DCI", value: p.activeIngredient },
+              { label: "Espèces ciblées", value: p.targetSpecies },
+              { label: "Forme / présentation", value: p.form },
+              { label: "Usage humain", value: p.humanUse ? "Oui — posologie non extrapolable" : undefined },
+              { label: "Posologie (notice)", value: p.posologie, wide: true },
+              { label: "Dosage structuré", value: p.dosage ? `${p.dosage.perKg} ${p.dosage.unit}${p.dosage.species ? ` — ${p.dosage.species}` : ""}${p.dosage.note ? ` · ${p.dosage.note}` : ""}` : undefined },
+              { label: "Contre-indications", value: p.contraIndications, wide: true },
+              { label: "Conservation", value: p.conservation },
               { label: "Description", value: p.description, wide: true },
             ]}
           />
+          {p.humanUse && (
+            <p className="mt-3 rounded-lg bg-warning-50 px-3 py-2 text-theme-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+              Produit à usage humain : aucune posologie humaine ne peut être appliquée automatiquement à un animal — validation vétérinaire obligatoire.
+            </p>
+          )}
         </ComponentCard>
         <ComponentCard title="Stock utilisable par établissement">
           {db.establishments.map((e) => (
             <div key={e.id} className="flex items-center justify-between text-sm">
-              <span>{e.name.replace("BIRCOVET ", "")}</span>
+              <span>{e.name.replace("Cliva ", "")}</span>
               <strong className={isLowStock(db, p.id, e.id, today) && e.id === establishment?.id ? "text-warning-600" : ""}>{productStock(db, p.id, e.id, today)} {p.stockUnit}(s)</strong>
             </div>
           ))}

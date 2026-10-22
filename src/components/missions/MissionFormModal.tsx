@@ -6,20 +6,21 @@ import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
 import { useOptions } from "@/hooks/useOptions";
 import { addDays } from "@/lib/format";
+import { optionsOf } from "@/lib/labels";
 import { createMission, updateMission, type MissionInput } from "@/lib/services/missionsService";
-import type { Mission } from "@/lib/types";
+import type { Mission, MissionCategory, ServiceType } from "@/lib/types";
 import { cn } from "@/utils";
 import { useEffect, useState } from "react";
 
 export default function MissionFormModal({ isOpen, onClose, mission, onCreated }: { isOpen: boolean; onClose: () => void; mission?: Mission; onCreated?: (id: string) => void }) {
   const { db, run, today } = useDemo();
   const opts = useOptions();
-  const [v, setV] = useState<MissionInput>({ objective: "", date: "", endDate: "", location: "", leaderId: "", teamIds: [], farmIds: [], clientIds: [], plannedInterventions: [] });
+  const [v, setV] = useState<MissionInput>({ objective: "", category: "exploitation", serviceType: "intervention", serviceLabel: "", date: "", endDate: "", location: "", leaderId: "", teamIds: [], farmIds: [], clientIds: [], plannedInterventions: [] });
   const [interventions, setInterventions] = useState("");
   useEffect(() => {
     if (!isOpen) return;
     const m = mission;
-    setV(m ? { objective: m.objective, date: m.date, endDate: m.endDate, location: m.location, leaderId: m.leaderId, teamIds: m.teamIds, farmIds: m.farmIds, clientIds: m.clientIds, plannedInterventions: m.plannedInterventions } : { objective: "", date: addDays(today, 3), endDate: addDays(today, 3), location: "", leaderId: "", teamIds: [], farmIds: [], clientIds: [], plannedInterventions: [] });
+    setV(m ? { objective: m.objective, category: m.category, serviceType: m.serviceType, serviceLabel: m.serviceLabel ?? "", date: m.date, endDate: m.endDate, location: m.location, leaderId: m.leaderId, teamIds: m.teamIds, farmIds: m.farmIds, clientIds: m.clientIds, plannedInterventions: m.plannedInterventions } : { objective: "", category: "exploitation", serviceType: "intervention", serviceLabel: "", date: addDays(today, 3), endDate: addDays(today, 3), location: "", leaderId: "", teamIds: [], farmIds: [], clientIds: [], plannedInterventions: [] });
     setInterventions(m?.plannedInterventions.join("\n") ?? "");
   }, [isOpen, mission, today]);
   const toggle = (k: "teamIds" | "farmIds", id: string) => setV((s) => ({ ...s, [k]: s[k].includes(id) ? s[k].filter((x) => x !== id) : [...s[k], id] }));
@@ -49,6 +50,9 @@ export default function MissionFormModal({ isOpen, onClose, mission, onCreated }
       <div className="space-y-4">
         <FormGrid>
           <TextField label="Objectif" required value={v.objective} onChange={(objective) => setV({ ...v, objective })} className="sm:col-span-2" />
+          <SelectField label="Catégorie de mission" required value={v.category} onChange={(category) => setV({ ...v, category: category as MissionCategory })} options={optionsOf("missionCategory")} />
+          <SelectField label="Type de prestation" required value={v.serviceType} onChange={(serviceType) => setV({ ...v, serviceType: serviceType as ServiceType })} options={optionsOf("serviceType")} />
+          {v.serviceType === "autre" && <TextField label="Prestation personnalisée" value={v.serviceLabel ?? ""} onChange={(serviceLabel) => setV({ ...v, serviceLabel })} />}
           <TextField label="Début" type="date" value={v.date} onChange={(date) => setV({ ...v, date, endDate: v.endDate < date ? date : v.endDate })} />
           <TextField label="Fin" type="date" value={v.endDate} onChange={(endDate) => setV({ ...v, endDate })} />
           <SelectField label="Responsable" required value={v.leaderId} onChange={(leaderId) => setV({ ...v, leaderId })} options={opts.vets} />

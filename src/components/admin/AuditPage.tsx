@@ -30,7 +30,7 @@ export default function AuditPage() {
         pageTitle="Journal d'activité"
         subtitle="Alimenté par les actions importantes effectuées dans la démonstration"
         trail={[{ label: "Administration", href: "/administration/utilisateurs" }]}
-        actions={<Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("bircovet-journal-demo", ["Date", "Utilisateur", "Module", "Action", "Élément", "Ancienne valeur", "Nouvelle valeur", "Motif", "Décision"], rows.map((a) => [formatDateTime(a.date), userName(db, a.userId), a.module, a.action, a.target, a.oldValue, a.newValue, a.reason, a.decision]))}>Export CSV</Button>}
+        actions={<Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-journal-demo", ["Date", "Utilisateur", "Module", "Action", "Élément", "Ancienne valeur", "Nouvelle valeur", "Motif", "Décision"], rows.map((a) => [formatDateTime(a.date), userName(db, a.userId), a.module, a.action, a.target, a.oldValue, a.newValue, a.reason, a.decision]))}>Export CSV</Button>}
       />
       <Panel>
         <FilterBar

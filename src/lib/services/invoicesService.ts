@@ -1,6 +1,6 @@
 import { docTotal, invoiceCredited, isActiveInvoice, maxDiscount } from "../calc";
 import { addDays, uid } from "../format";
-import type { ActionCtx, DemoDB, InvoiceLine, Quote } from "../types";
+import type { ActionCtx, DemoDB, Invoice, InvoiceLine, Quote } from "../types";
 import { audit, fail, must, nextCode, produce, requireOnline, requireRole, today, type Service } from "./core";
 
 function checkLines(lines: InvoiceLine[]) {
@@ -236,4 +236,58 @@ export const createGroupedInvoice: Service<{ clientId: string; consultationIds: 
     }
     const invId = buildInvoice(d, ctx, { clientId, lines, notes: `Facture regroupée de ${unique.length} visite(s)` });
     return { message: `Facture regroupée créée (${unique.length} visite(s)).`, data: invId };
+  });
+
+/* ---------------- Pro forma (document commercial non engageant) ---------------- */
+
+/** Pro forma : hors balance, sans règlement — convertible en facture brouillon. */
+export const createProforma: Service<{ clientId: string; lines: InvoiceLine[]; notes: string }, string> = (db, ctx, input) =>
+  produce(db, (d) => {
+    requireRole(ctx, ["dg", "vet", "accueil"], "facturation");
+    checkLines(input.lines);
+    const client = must(d.clients.find((c) => c.id === input.clientId), "Client requis.");
+    const id = uid("inv");
+    const code = nextCode(d, "proforma", "DEMO-PF");
+    d.invoices.unshift({
+      id,
+      code,
+      kind: "proforma",
+      clientId: client.id,
+      payerName: client.payerName || client.name,
+      establishmentId: ctx.establishmentId,
+      date: today(ctx),
+      dueDate: today(ctx),
+      lines: input.lines.map((l) => ({ ...l, id: l.id || uid("il") })),
+      status: "validee",
+      authorId: ctx.user.id,
+      creditNoteIds: [],
+      fiscalStatus: "non_concerne_demo",
+      fneStatus: "non_renseigne",
+      notes: input.notes,
+    });
+    audit(d, ctx, { module: "Facturation", action: "Émission de facture pro forma", target: code });
+    return { message: `Pro forma ${code} émis (document non engageant — hors comptabilité).`, data: id };
+  });
+
+/** Conversion pro forma → facture brouillon liée (sans double comptabilisation). */
+export const convertProforma: Service<{ id: string }, string> = (db, ctx, { id }) =>
+  produce(db, (d) => {
+    requireRole(ctx, ["dg", "accueil"], "conversion de pro forma");
+    const pf = must(d.invoices.find((x) => x.id === id));
+    if (pf.kind !== "proforma") fail("Ce document n'est pas un pro forma.");
+    if (pf.convertedToInvoiceId) fail("Ce pro forma est déjà converti en facture.");
+    const invId = buildInvoice(d, ctx, { clientId: pf.clientId, lines: pf.lines.map((l) => ({ ...l, id: uid("il"), source: undefined })), notes: `Issu du pro forma ${pf.code}` });
+    pf.convertedToInvoiceId = invId;
+    audit(d, ctx, { module: "Facturation", action: "Conversion pro forma → facture", target: `${pf.code} → ${d.invoices.find((x) => x.id === invId)?.code}` });
+    return { message: "Facture brouillon créée à partir du pro forma.", data: invId };
+  });
+
+/** Distinction FNE / hors FNE — champ informatif, conformité réelle non simulée. */
+export const setFneStatus: Service<{ id: string; fne: NonNullable<Invoice["fneStatus"]> }> = (db, ctx, { id, fne }) =>
+  produce(db, (d) => {
+    const inv = must(d.invoices.find((x) => x.id === id));
+    if (inv.kind !== "facture") fail("La distinction FNE concerne les factures.");
+    inv.fneStatus = fne;
+    audit(d, ctx, { module: "Facturation", action: "Distinction FNE", target: inv.code, newValue: fne });
+    return { message: "Marquage FNE enregistré (informatif — la conformité FNE n'est pas simulée)." };
   });

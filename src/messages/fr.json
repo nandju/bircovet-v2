@@ -41,6 +41,8 @@
       "stockMovements": "Mouvements",
       "stockInventories": "Inventaires",
       "stockTransfers": "Transferts",
+      "stockDepots": "Dépôts-vente",
+      "stockCalculator": "Calculateur de conseil",
       "stockCorrections": "Pertes et corrections",
       "stockAlerts": "Alertes",
       "purchases": "Achats et fournisseurs",
@@ -50,6 +52,7 @@
       "billing": "Devis et facturation",
       "invoices": "Factures",
       "quotes": "Devis",
+      "proforma": "Pro forma",
       "creditNotes": "Avoirs",
       "groupedBilling": "Facturation regroupée",
       "finance": "Caisse et finances",
@@ -64,6 +67,7 @@
       "reminders": "Rappels et messages",
       "interactions": "Interactions",
       "trainings": "Formations",
+      "equipe": "Espace équipe",
       "documents": "Documents",
       "reports": "Rapports et statistiques",
       "assistant": "Assistant IA",
@@ -72,6 +76,7 @@
       "roles": "Rôles et permissions",
       "establishments": "Établissements",
       "settings": "Paramètres",
+      "licences": "Licences",
       "audit": "Journal d'activité",
       "demo": "Préférences et démo"
     },
@@ -97,7 +102,7 @@
     "demoEnv": "Environnement de démonstration"
   },
   "auth": {
-    "title": "Connexion à BIRCOVET",
+    "title": "Connexion à Cliva",
     "subtitle": "Plateforme de gestion de clinique vétérinaire",
     "tagline": "Gestion clinique, élevages, pharmacie et finances — réunies dans un seul espace."
   },

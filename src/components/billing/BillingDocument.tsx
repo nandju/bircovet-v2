@@ -1,6 +1,6 @@
 "use client";
 
-import BircovetLogo from "@/components/common/BircovetLogo";
+import ClivaLogo from "@/components/common/ClivaLogo";
 import { useDemo } from "@/context/DemoStoreContext";
 import { docGross, docTotal, lineTotal } from "@/lib/calc";
 import { formatDate, formatXOF } from "@/lib/format";
@@ -32,7 +32,7 @@ export default function BillingDocument({ title, code, date, secondDate, clientN
       <div className="relative">
         <div className="flex flex-col justify-between gap-4 sm:flex-row">
           <div>
-            <BircovetLogo />
+            <ClivaLogo />
             <p className="mt-2 text-theme-xs text-gray-500">{db.settings.legalName}</p>
             <p className="text-theme-xs text-gray-500">{establishment?.address}</p>
             <p className="text-theme-xs text-gray-500">{db.settings.phone} · {db.settings.email}</p>

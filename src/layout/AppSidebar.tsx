@@ -1,6 +1,6 @@
 "use client";
 
-import BircovetLogo from "@/components/common/BircovetLogo";
+import ClivaLogo from "@/components/common/ClivaLogo";
 import { useDemo } from "@/context/DemoStoreContext";
 import { Link, usePathname } from "@/i18n/navigation";
 import { ChevronDownIcon, HorizontaLDots } from "@/icons";
@@ -98,8 +98,8 @@ const AppSidebar: React.FC = () => {
       aria-label="Navigation principale"
     >
       <div className={cn("flex shrink-0 py-6", !showText ? "xl:justify-center" : "justify-start ps-2")}>
-        <Link href="/" aria-label="BIRCOVET — Vue d'ensemble">
-          <BircovetLogo compact={!showText} />
+        <Link href="/" aria-label="Cliva — Vue d'ensemble">
+          <ClivaLogo compact={!showText} />
         </Link>
       </div>
       <div className="no-scrollbar flex flex-1 flex-col overflow-y-auto pb-6 duration-300 ease-linear">

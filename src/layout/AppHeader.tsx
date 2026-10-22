@@ -1,6 +1,6 @@
 "use client";
 
-import BircovetLogo from "@/components/common/BircovetLogo";
+import ClivaLogo from "@/components/common/ClivaLogo";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
 import ConnectionToggle from "@/components/header/ConnectionToggle";
 import EstablishmentSelector from "@/components/header/EstablishmentSelector";
@@ -43,8 +43,8 @@ const AppHeader: React.FC = () => {
             {isMobileOpen ? <CloseIcon /> : <ListIcon className="rtl:-scale-x-100" />}
           </button>
 
-          <Link href="/" className="xl:hidden" aria-label="BIRCOVET">
-            <BircovetLogo className="[&_svg]:size-8" />
+          <Link href="/" className="xl:hidden" aria-label="Cliva">
+            <ClivaLogo className="[&_svg]:size-8" />
           </Link>
 
           <button

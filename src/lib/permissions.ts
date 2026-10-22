@@ -118,7 +118,7 @@ const MATRIX: Record<RoleId, Perms> = {
     hospitalisation: "ru",
     missions: "ru",
     stock: "rcu",
-    achats: "r",
+    achats: "rc",
     relation: "ru",
     documents: "rc",
     ia: "rc",

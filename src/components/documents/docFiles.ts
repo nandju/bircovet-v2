@@ -19,7 +19,7 @@ export function downloadDocument(doc: DocumentItem): boolean {
     return true;
   }
   if (doc.contentText) {
-    downloadText(doc.fileName.endsWith(".txt") ? doc.fileName : `${doc.fileName}.txt`, `${doc.contentText}\n\n— Document de démonstration BIRCOVET (fictif) —`);
+    downloadText(doc.fileName.endsWith(".txt") ? doc.fileName : `${doc.fileName}.txt`, `${doc.contentText}\n\n— Document de démonstration Cliva (fictif) —`);
     return true;
   }
   return false;

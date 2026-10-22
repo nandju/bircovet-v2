@@ -28,14 +28,29 @@ function checkPOLines(lines: PurchaseOrderLine[]) {
 
 export const createPurchaseOrder: Service<{ supplierId: string; expectedDate: string; lines: PurchaseOrderLine[]; notes: string }, string> = (db, ctx, input) =>
   produce(db, (d) => {
-    requireRole(ctx, ["dg", "accueil"], "commande d'achat");
+    requireRole(ctx, ["dg", "accueil", "assistant"], "commande d'achat");
     must(d.suppliers.find((s) => s.id === input.supplierId && s.status === "actif"), "Fournisseur actif requis.");
     checkPOLines(input.lines);
     const id = uid("po");
     const code = nextCode(d, "po", "BC");
     d.purchaseOrders.unshift({ id, code, supplierId: input.supplierId, establishmentId: ctx.establishmentId, date: today(ctx), expectedDate: input.expectedDate, lines: input.lines.map((l) => ({ ...l, id: l.id || uid("pol") })), status: "brouillon", authorId: ctx.user.id, notes: input.notes });
     audit(d, ctx, { module: "Achats", action: "Création de commande", target: code });
-    return { message: `Commande ${code} créée en brouillon.`, data: id };
+    return { message: `Commande ${code} créée en brouillon${ctx.user.roleId === "assistant" ? " — à valider par un responsable" : ""}.`, data: id };
+  });
+
+/** Commentaire mensuel de revue des commandes (aide aux prévisions). */
+export const saveOrderReview: Service<{ month: string; comment: string }> = (db, ctx, { month, comment }) =>
+  produce(db, (d) => {
+    requireRole(ctx, ["dg", "accueil", "assistant"], "revue des commandes");
+    const r = d.orderReviews.find((x) => x.month === month);
+    if (r) {
+      r.comment = comment;
+      r.userId = ctx.user.id;
+      r.date = ctx.now;
+    } else {
+      d.orderReviews.push({ id: uid("orv"), month, comment, userId: ctx.user.id, date: ctx.now });
+    }
+    return { message: "Commentaire de revue mensuelle enregistré." };
   });
 
 export const updatePurchaseOrder: Service<{ id: string; expectedDate: string; lines: PurchaseOrderLine[]; notes: string }> = (db, ctx, input) =>

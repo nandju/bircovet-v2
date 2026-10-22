@@ -220,7 +220,7 @@ test("10. Hospitalisation : soins, sortie médicale ≠ solde", () => {
 });
 
 test("11. Mission : transfert, consommations, pertes, retours, rapprochement", () => {
-  const mid = ok(createMission(db, ctx(VET), { objective: "Test", date: today, endDate: today, location: "x", leaderId: VET, teamIds: [ASST], farmIds: ["farm-1"], clientIds: ["cli-023"], plannedInterventions: ["a"] }), "création")!;
+  const mid = ok(createMission(db, ctx(VET), { objective: "Test", category: "exploitation", serviceType: "intervention", serviceLabel: "", date: today, endDate: today, location: "x", leaderId: VET, teamIds: [ASST], farmIds: ["farm-1"], clientIds: ["cli-023"], plannedInterventions: ["a"] }), "création")!;
   ok(setMissionStatus(db, ctx(VET), { id: mid, status: "planifiee" }), "planifiée");
   const lot = db.lots.find((l) => l.productId === "prd-14" && l.status === "disponible" && l.qtyAvailable >= 20)!;
   const before = lot.qtyAvailable;

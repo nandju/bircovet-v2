@@ -25,6 +25,7 @@ import { addPatientNote } from "@/lib/services/patientsService";
 import { cn } from "@/utils";
 import { useState } from "react";
 import PatientFormModal from "./PatientFormModal";
+import PatientMedia from "./PatientMedia";
 import { DeathDialog, TransferModal, VaccinationModal, VitalModal } from "./PatientModals";
 
 export default function PatientDetail({ id }: { id: string }) {
@@ -138,6 +139,7 @@ export default function PatientDetail({ id }: { id: string }) {
           { key: "prescriptions", label: "Prescriptions", count: prescriptions.length },
           { key: "vaccins", label: "Vaccinations et rappels", count: p.vaccinations.length },
           { key: "hosp", label: "Hospitalisations", count: stays.length },
+          { key: "media", label: "Photos et examens", count: p.photos.length + p.exams.length },
           { key: "docs", label: "Documents" },
           { key: "history", label: "Historique" },
         ]}
@@ -282,6 +284,8 @@ export default function PatientDetail({ id }: { id: string }) {
           />
         </ComponentCard>
       )}
+
+      {tab === "media" && <PatientMedia patient={p} readOnly={readOnly} />}
 
       {tab === "docs" && (
         <ComponentCard title="Documents et pièces jointes">

@@ -39,7 +39,7 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Structure de navigation BIRCOVET (libellés dans messages/fr.json → sidebar.items). */
+/** Structure de navigation Cliva (libellés dans messages/fr.json → sidebar.items). */
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: "pilotage",
@@ -97,6 +97,8 @@ export const NAV_GROUPS: NavGroup[] = [
           { key: "stockMovements", path: "/stock/mouvements" },
           { key: "stockInventories", path: "/stock/inventaires" },
           { key: "stockTransfers", path: "/stock/transferts" },
+          { key: "stockDepots", path: "/stock/depots" },
+          { key: "stockCalculator", path: "/stock/calculateur" },
           { key: "stockCorrections", path: "/stock/corrections" },
           { key: "stockAlerts", path: "/stock/alertes" },
         ],
@@ -118,6 +120,7 @@ export const NAV_GROUPS: NavGroup[] = [
         subItems: [
           { key: "invoices", path: "/facturation" },
           { key: "quotes", path: "/facturation/devis" },
+          { key: "proforma", path: "/facturation/proforma" },
           { key: "creditNotes", path: "/facturation/avoirs" },
           { key: "groupedBilling", path: "/facturation/regroupee" },
         ],
@@ -151,6 +154,7 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       { key: "trainings", icon: <GraduationIcon />, module: "formations", path: "/formations" },
+      { key: "equipe", icon: <UsersIcon />, module: "dashboard", path: "/equipe" },
       { key: "documents", icon: <DocsIcon />, module: "documents", path: "/documents" },
       { key: "reports", icon: <ChartBarIcon />, module: "rapports", path: "/rapports" },
       { key: "assistant", icon: <SparklesIcon />, module: "ia", path: "/assistant-ia" },
@@ -168,6 +172,7 @@ export const NAV_GROUPS: NavGroup[] = [
           { key: "roles", path: "/administration/roles" },
           { key: "establishments", path: "/administration/etablissements" },
           { key: "settings", path: "/administration/parametres" },
+          { key: "licences", path: "/administration/licences" },
           { key: "audit", path: "/administration/journal" },
           { key: "demo", path: "/administration/demo" },
         ],

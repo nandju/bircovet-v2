@@ -80,7 +80,7 @@ export default function PatientsList() {
               variant="outline"
               size="sm"
               startIcon={<DownloadIcon />}
-              onClick={() => exportCsv("bircovet-patients-demo", ["Code", "Nom", "Espèce", "Race", "Sexe", "Naissance", "Propriétaire", "Statut"], rows.map((p) => [p.code, p.name, p.species, p.breed, labelOf("sex", p.sex), formatDate(p.birthDate), clientName(db, p.ownerId), labelOf("vital", p.vitalStatus)]))}
+              onClick={() => exportCsv("cliva-patients-demo", ["Code", "Nom", "Espèce", "Race", "Sexe", "Naissance", "Propriétaire", "Statut"], rows.map((p) => [p.code, p.name, p.species, p.breed, labelOf("sex", p.sex), formatDate(p.birthDate), clientName(db, p.ownerId), labelOf("vital", p.vitalStatus)]))}
             >
               Export CSV
             </Button>

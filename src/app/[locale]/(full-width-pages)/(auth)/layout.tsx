@@ -1,4 +1,4 @@
-import BircovetLogo from "@/components/common/BircovetLogo";
+import ClivaLogo from "@/components/common/ClivaLogo";
 import GridShape from "@/components/common/GridShape";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -16,7 +16,7 @@ export default async function AuthLayout({ children, params }: { children: React
         <div className="relative hidden w-full items-center overflow-hidden bg-brand-900 lg:grid lg:w-1/2 dark:bg-white/5">
           <GridShape />
           <div className="relative z-1 mx-auto flex max-w-md flex-col items-start px-10">
-            <BircovetLogo light className="[&_svg]:size-12" />
+            <ClivaLogo light className="[&_svg]:size-12" />
             <p className="mt-6 text-2xl leading-snug font-semibold text-white">{t("tagline")}</p>
             <ul className="mt-6 space-y-3">
               {features.map((f) => (

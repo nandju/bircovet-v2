@@ -52,7 +52,7 @@ export function EstablishmentActivityCard() {
   return (
     <ComponentCard title="Activité par établissement" desc="90 derniers jours">
       <BarChart
-        labels={s.map((x) => x.name.replace("BIRCOVET ", ""))}
+        labels={s.map((x) => x.name.replace("Cliva ", ""))}
         series={[
           { name: "Consultations", data: s.map((x) => x.consultations) },
           { name: "Rendez-vous", data: s.map((x) => x.appointments) },

@@ -3,7 +3,7 @@ import { uid } from "../format";
 import { audit, fail, must, nextCode, notify, positive, produce, requireOnline, requireRole, today, type Service } from "./core";
 
 /** Dépense : approuvée d'office si dans la délégation, sinon circuit de validation DG. */
-export const createExpense: Service<{ accountId: string; category: string; label: string; amount: number; date: string }> = (db, ctx, input) =>
+export const createExpense: Service<{ accountId: string; category: string; label: string; amount: number; date: string; attachmentName?: string; attachmentDataUrl?: string }> = (db, ctx, input) =>
   produce(db, (d) => {
     requireRole(ctx, ["dg", "accueil"], "saisie de dépense");
     positive(input.amount, "Le montant");
@@ -27,6 +27,8 @@ export const createExpense: Service<{ accountId: string; category: string; label
       decidedAt: auto ? ctx.now : undefined,
       withinDelegation: within,
       confidential: input.category === "Salaires",
+      attachmentName: input.attachmentName,
+      attachmentDataUrl: input.attachmentDataUrl,
     });
     if (!auto) notify(d, ctx, { title: "Dépense hors délégation", body: `${code} — ${input.label} (${input.amount} F) attend une validation DG.`, level: "info", link: "/finances/depenses" });
     audit(d, ctx, { module: "Finances", action: "Saisie de dépense", target: code, newValue: String(input.amount), decision: auto ? "Dans la délégation" : "Hors délégation — en attente DG" });

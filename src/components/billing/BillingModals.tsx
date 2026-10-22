@@ -8,7 +8,7 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { useOptions } from "@/hooks/useOptions";
 import { docTotal, invoiceCredited, lineTotal } from "@/lib/calc";
 import { formatXOF, uid } from "@/lib/format";
-import { createCreditNote, createInvoice, createQuote, updateInvoiceDraft, updateQuote } from "@/lib/services/invoicesService";
+import { createCreditNote, createInvoice, createProforma, createQuote, updateInvoiceDraft, updateQuote } from "@/lib/services/invoicesService";
 import type { Invoice, InvoiceLine, Quote } from "@/lib/types";
 import { useEffect, useState } from "react";
 import LinesEditor from "./LinesEditor";
@@ -16,7 +16,7 @@ import LinesEditor from "./LinesEditor";
 const newLine = (): InvoiceLine => ({ id: uid("il"), label: "", kind: "service", qty: 1, unitPrice: 0, discountPct: 0 });
 
 /** Création / modification d'un devis ou d'une facture brouillon. */
-export function DocumentEditorModal({ isOpen, onClose, kind, invoice, quote, onCreated }: { isOpen: boolean; onClose: () => void; kind: "facture" | "devis"; invoice?: Invoice; quote?: Quote; onCreated?: (id: string) => void }) {
+export function DocumentEditorModal({ isOpen, onClose, kind, invoice, quote, onCreated }: { isOpen: boolean; onClose: () => void; kind: "facture" | "devis" | "proforma"; invoice?: Invoice; quote?: Quote; onCreated?: (id: string) => void }) {
   const { run } = useDemo();
   const opts = useOptions();
   const [clientId, setClientId] = useState("");
@@ -41,6 +41,7 @@ export function DocumentEditorModal({ isOpen, onClose, kind, invoice, quote, onC
     if (invoice) r = run(updateInvoiceDraft, { id: invoice.id, lines, notes, dueDate });
     else if (quote) r = run(updateQuote, { id: quote.id, lines, notes });
     else if (kind === "facture") r = run(createInvoice, { clientId, lines, notes });
+    else if (kind === "proforma") r = run(createProforma, { clientId, lines, notes });
     else r = run(createQuote, { clientId, patientId: patientId || undefined, lines, validDays, notes });
     if (r.ok) {
       onClose();
@@ -53,7 +54,7 @@ export function DocumentEditorModal({ isOpen, onClose, kind, invoice, quote, onC
       isOpen={isOpen}
       onClose={onClose}
       size="xl"
-      title={editing ? `Modifier ${invoice?.code ?? quote?.code}` : kind === "facture" ? "Nouvelle facture (brouillon)" : "Nouveau devis"}
+      title={editing ? `Modifier ${invoice?.code ?? quote?.code}` : kind === "facture" ? "Nouvelle facture (brouillon)" : kind === "proforma" ? "Nouveau pro forma" : "Nouveau devis"}
       footer={
         <>
           <Button size="sm" variant="outline" onClick={onClose}>

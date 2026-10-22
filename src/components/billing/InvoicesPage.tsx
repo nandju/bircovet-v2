@@ -20,7 +20,9 @@ import { exportCsv } from "@/utils/export";
 import { useMemo, useState } from "react";
 import { DocumentEditorModal } from "./BillingModals";
 
-export default function InvoicesPage({ kind = "facture" }: { kind?: "facture" | "avoir" }) {
+const TITLES: Record<Invoice["kind"], string> = { facture: "Factures", avoir: "Avoirs", proforma: "Factures pro forma" };
+
+export default function InvoicesPage({ kind = "facture" }: { kind?: "facture" | "avoir" | "proforma" }) {
   const { db, today } = useDemo();
   const router = useRouter();
   const create = useModal();
@@ -37,18 +39,18 @@ export default function InvoicesPage({ kind = "facture" }: { kind?: "facture" | 
   return (
     <div className="space-y-4">
       <PageBreadcrumb
-        pageTitle={kind === "facture" ? "Factures" : "Avoirs"}
+        pageTitle={TITLES[kind]}
         subtitle="Documents de démonstration — sans valeur fiscale"
         trail={[{ label: "Facturation", href: "/facturation" }]}
         actions={
           <>
-            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv(`bircovet-${kind}s-demo`, ["N°", "Date", "Échéance", "Client", "Payeur", "Total XOF", "Payé XOF", "Solde XOF", "Statut", "Origine (avoir)"], rows.map((i) => [i.code, formatDate(i.date), formatDate(i.dueDate), clientName(db, i.clientId), i.payerName, docTotal(i.lines), invoicePaid(db, i.id), i.kind === "facture" ? invoiceBalance(db, i) : 0, labelOf("invoice", i.status), db.invoices.find((x) => x.id === i.originalInvoiceId)?.code ?? ""]))}>
+            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv(`cliva-${kind}s-demo`, ["N°", "Date", "Échéance", "Client", "Payeur", "Total XOF", "Payé XOF", "Solde XOF", "Statut", "Origine (avoir)"], rows.map((i) => [i.code, formatDate(i.date), formatDate(i.dueDate), clientName(db, i.clientId), i.payerName, docTotal(i.lines), invoicePaid(db, i.id), i.kind === "facture" ? invoiceBalance(db, i) : 0, labelOf("invoice", i.status), db.invoices.find((x) => x.id === i.originalInvoiceId)?.code ?? ""]))}>
               Export CSV
             </Button>
-            {kind === "facture" && (
+            {(kind === "facture" || kind === "proforma") && (
               <Can module="facturation" action="create">
                 <Button size="sm" startIcon={<PlusIcon />} onClick={create.openModal}>
-                  Nouvelle facture
+                  {kind === "proforma" ? "Nouveau pro forma" : "Nouvelle facture"}
                 </Button>
               </Can>
             )}
@@ -84,15 +86,15 @@ export default function InvoicesPage({ kind = "facture" }: { kind?: "facture" | 
             { key: "c", header: "N°", primary: true, sortValue: (i) => i.code, render: (i) => <span className="font-medium">{i.code}</span> },
             { key: "d", header: "Date", sortValue: (i) => i.date, render: (i) => formatDate(i.date) },
             { key: "cl", header: "Client / payeur", render: (i) => <span className="flex flex-col"><span>{clientName(db, i.clientId)}</span>{i.payerName !== clientName(db, i.clientId) && <span className="text-theme-xs text-gray-500">{i.payerName}</span>}</span> },
-            ...(kind === "avoir" ? [{ key: "o", header: "Facture d'origine", render: (i: Invoice) => db.invoices.find((x) => x.id === i.originalInvoiceId)?.code ?? "—" }, { key: "m", header: "Motif", render: (i: Invoice) => i.correctionReason }] : [{ key: "e", header: "Échéance", sortValue: (i: Invoice) => i.dueDate, render: (i: Invoice) => formatDate(i.dueDate), hideOnMobile: true }]),
+            ...(kind === "avoir" ? [{ key: "o", header: "Facture d'origine", render: (i: Invoice) => db.invoices.find((x) => x.id === i.originalInvoiceId)?.code ?? "—" }, { key: "m", header: "Motif", render: (i: Invoice) => i.correctionReason }] : kind === "proforma" ? [{ key: "cv", header: "Conversion", render: (i: Invoice) => (i.convertedToInvoiceId ? `Facture ${db.invoices.find((x) => x.id === i.convertedToInvoiceId)?.code ?? ""}` : "—") }] : [{ key: "e", header: "Échéance", sortValue: (i: Invoice) => i.dueDate, render: (i: Invoice) => formatDate(i.dueDate), hideOnMobile: true }]),
             { key: "t", header: "Total", align: "end", sortValue: (i) => docTotal(i.lines), render: (i) => formatXOF(docTotal(i.lines)) },
             ...(kind === "facture" ? [{ key: "b", header: "Solde", align: "end" as const, sortValue: (i: Invoice) => invoiceBalance(db, i), render: (i: Invoice) => (isActiveInvoice(i) ? <span className={invoiceBalance(db, i) > 0 ? "font-medium text-error-600" : "text-success-600"}>{formatXOF(invoiceBalance(db, i))}</span> : "—") }] : []),
             { key: "s", header: "Statut", render: (i) => <StatusBadge kind="invoice" value={i.status} /> },
           ]}
-          emptyTitle={kind === "facture" ? "Aucune facture sur la période" : "Aucun avoir"}
+          emptyTitle={kind === "facture" ? "Aucune facture sur la période" : kind === "proforma" ? "Aucun pro forma" : "Aucun avoir"}
         />
       </Panel>
-      <DocumentEditorModal isOpen={create.isOpen} onClose={create.closeModal} kind="facture" onCreated={(id) => router.push(`/facturation/factures/${id}`)} />
+      <DocumentEditorModal isOpen={create.isOpen} onClose={create.closeModal} kind={kind === "proforma" ? "proforma" : "facture"} onCreated={(id) => router.push(`/facturation/factures/${id}`)} />
     </div>
   );
 }

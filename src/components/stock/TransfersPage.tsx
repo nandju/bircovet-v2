@@ -46,7 +46,7 @@ export default function TransfersPage() {
             { key: "c", header: "Réf.", primary: true, render: (t) => t.code },
             { key: "d", header: "Date", render: (t) => formatDateTime(t.date) },
             { key: "p", header: "Article / lot", render: (t) => `${productName(db, db.lots.find((l) => l.id === t.lotId)?.productId)} — ${lotRef(db, t.lotId)}` },
-            { key: "f", header: "De → vers", render: (t) => `${establishmentName(db, t.fromEstablishmentId).replace("BIRCOVET ", "")} → ${establishmentName(db, t.toEstablishmentId).replace("BIRCOVET ", "")}` },
+            { key: "f", header: "De → vers", render: (t) => `${establishmentName(db, t.fromEstablishmentId).replace("Cliva ", "")} → ${establishmentName(db, t.toEstablishmentId).replace("Cliva ", "")}` },
             { key: "q", header: "Qté", align: "end", render: (t) => t.qty },
             { key: "u", header: "Par", render: (t) => userName(db, t.userId) },
           ]}

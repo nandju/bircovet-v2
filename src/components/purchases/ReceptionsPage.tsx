@@ -117,7 +117,7 @@ export default function ReceptionsPage() {
         description="Le fichier crée une réception PROPOSÉE — jamais une augmentation automatique du stock."
         footer={
           <>
-            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => downloadText("exemple-bli-bircovet.csv", sample, "text/csv")}>
+            <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => downloadText("exemple-bli-cliva.csv", sample, "text/csv")}>
               Télécharger l&apos;exemple
             </Button>
             <Button size="sm" variant="outline" onClick={bli.closeModal}>

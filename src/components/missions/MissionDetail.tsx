@@ -16,7 +16,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { clientName, lotBlockReason, lotRef, productName, userName } from "@/lib/calc";
 import { formatDate, formatDateTime, uid } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
-import { invoiceMission, missionTransitions, reconcileMission, recordMissionUsage, saveMissionReport, setMissionStatus, transferToMission } from "@/lib/services/missionsService";
+import { addMissionAction, invoiceMission, missionTransitions, reconcileMission, recordMissionUsage, saveMissionReport, setMissionStatus, toggleMissionAction, transferToMission } from "@/lib/services/missionsService";
 import type { MissionStatus } from "@/lib/types";
 import { useEffect, useState } from "react";
 import MissionFormModal from "./MissionFormModal";
@@ -88,6 +88,8 @@ export default function MissionDetail({ id }: { id: string }) {
               items={[
                 { label: "Référence", value: m.code },
                 { label: "Statut", value: <StatusBadge kind="mission" value={m.status} /> },
+                { label: "Catégorie", value: <StatusBadge kind="missionCategory" value={m.category} /> },
+                { label: "Prestation", value: <span>{labelOf("serviceType", m.serviceType)}{m.serviceType === "autre" && m.serviceLabel ? ` — ${m.serviceLabel}` : ""}</span> },
                 { label: "Responsable", value: userName(db, m.leaderId) },
                 { label: "Équipe", value: m.teamIds.map((t) => userName(db, t)).join(", ") || "—" },
                 { label: "Exploitations", value: m.farmIds.map((f) => <Link key={f} href={`/exploitations/${f}`} className="me-2 text-brand-600 hover:underline">{db.farms.find((x) => x.id === f)?.name}</Link>), wide: true },
@@ -105,6 +107,40 @@ export default function MissionDetail({ id }: { id: string }) {
               ))}
               {!m.plannedInterventions.length && <li className="text-gray-500">Aucune intervention planifiée.</li>}
             </ul>
+          </ComponentCard>
+          <ComponentCard title="Actions à mener" desc="Échéancier issu de la mission — responsable, échéance, état" className="lg:col-span-2">
+            <ul className="divide-y divide-gray-100 text-sm dark:divide-gray-800">
+              {m.actionItems.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center gap-3 py-2">
+                  <input type="checkbox" checked={a.done} disabled={!can("missions", "update")} onChange={() => run(toggleMissionAction, { id: m.id, actionId: a.id })} className="size-4 rounded border-gray-300 accent-brand-500" />
+                  <span className={a.done ? "text-gray-400 line-through" : "text-gray-800 dark:text-white/90"}>{a.label}</span>
+                  <span className="ms-auto flex items-center gap-2 text-theme-xs text-gray-500">
+                    {a.assigneeId ? userName(db, a.assigneeId) : "Non assigné"}
+                    {a.dueDate && <span className={!a.done && a.dueDate < today ? "font-medium text-error-600" : ""}>{a.dueDate < today && !a.done ? "en retard · " : ""}{formatDate(a.dueDate)}</span>}
+                    {a.note && <span className="text-gray-400">— {a.note}</span>}
+                  </span>
+                </li>
+              ))}
+              {!m.actionItems.length && <li className="py-2 text-gray-500">Aucune action à mener.</li>}
+            </ul>
+            {can("missions", "update") && (
+              <form
+                className="mt-3 grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_10rem_9rem_auto]"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  if (run(addMissionAction, { id: m.id, label: String(fd.get("l") ?? ""), assigneeId: String(fd.get("a") ?? "") || undefined, dueDate: String(fd.get("d") ?? "") || undefined }).ok) e.currentTarget.reset();
+                }}
+              >
+                <input name="l" required placeholder="Nouvelle action à mener…" className="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700" />
+                <select name="a" className="h-10 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                  <option value="">Responsable…</option>
+                  {db.users.filter((u) => u.active).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+                <input name="d" type="date" className="h-10 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700" />
+                <Button size="sm" type="submit">Ajouter</Button>
+              </form>
+            )}
           </ComponentCard>
         </div>
       )}

@@ -48,7 +48,7 @@ export default function DemoPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "bircovet-sauvegarde-demo.json";
+      a.download = "cliva-sauvegarde-demo.json";
       a.click();
       URL.revokeObjectURL(url);
     } else if (confirm === "restore") {
@@ -86,7 +86,7 @@ export default function DemoPage() {
             ))}
           </div>
           <DemoNotice>
-            Comptes de démonstration — mot de passe fictif commun : <strong>{DEMO_PASSWORD}</strong>. Exemples : <strong>dg@bircovet.demo</strong>, <strong>accueil@bircovet.demo</strong>, <strong>vet@bircovet.demo</strong>, <strong>comptable@bircovet.demo</strong>.
+            Comptes de démonstration — mot de passe fictif commun : <strong>{DEMO_PASSWORD}</strong>. Exemples : <strong>dg@cliva.demo</strong>, <strong>accueil@cliva.demo</strong>, <strong>vet@cliva.demo</strong>, <strong>comptable@cliva.demo</strong>.
           </DemoNotice>
           <Button variant="outline" onClick={() => setConfirm("logout")}>Se déconnecter</Button>
         </>

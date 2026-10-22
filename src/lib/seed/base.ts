@@ -9,17 +9,18 @@ import type {
   Training,
   User,
 } from "../types";
+import { DEFAULT_BRANDING } from "../branding";
 
 export const DEMO_PASSWORD = "Demo@2026";
 
 export const ESTABLISHMENTS: Establishment[] = [
   {
     id: "est-abj",
-    name: "BIRCOVET Abidjan — Cocody",
+    name: "Cliva Abidjan — Cocody",
     city: "Abidjan",
     address: "Rue des Jardins, Cocody Riviera 2 (adresse fictive)",
     phone: "+225 27 22 00 00 01",
-    email: "cocody@bircovet.demo",
+    email: "cocody@cliva.demo",
     slotMinutes: 30,
     openingHours: "Lun–Sam 08:00–18:30",
     active: true,
@@ -29,11 +30,11 @@ export const ESTABLISHMENTS: Establishment[] = [
   },
   {
     id: "est-yam",
-    name: "BIRCOVET Yamoussoukro",
+    name: "Cliva Yamoussoukro",
     city: "Yamoussoukro",
     address: "Quartier Habitat, Yamoussoukro (adresse fictive)",
     phone: "+225 27 30 00 00 02",
-    email: "yamoussoukro@bircovet.demo",
+    email: "yamoussoukro@cliva.demo",
     slotMinutes: 20,
     openingHours: "Lun–Ven 08:00–17:30",
     active: true,
@@ -43,11 +44,11 @@ export const ESTABLISHMENTS: Establishment[] = [
   },
   {
     id: "est-bke",
-    name: "BIRCOVET Bouaké — Antenne terrain",
+    name: "Cliva Bouaké — Antenne terrain",
     city: "Bouaké",
     address: "Zone industrielle, Bouaké (adresse fictive)",
     phone: "+225 27 31 00 00 03",
-    email: "bouake@bircovet.demo",
+    email: "bouake@cliva.demo",
     slotMinutes: 45,
     openingHours: "Mar–Sam 08:00–16:00",
     active: true,
@@ -81,17 +82,17 @@ const u = (
 });
 
 export const USERS: User[] = [
-  u("u-dg", "Dr Aya Kouassi", "dg@bircovet.demo", "dg", "est-abj", "Directrice générale, Docteur vétérinaire", "+225 07 00 00 10 01"),
-  u("u-vet1", "Dr Yao N'Guessan", "vet@bircovet.demo", "vet", "est-abj", "Vétérinaire praticien", "+225 07 00 00 10 02"),
-  u("u-vet2", "Dr Fatou Traoré", "vet2@bircovet.demo", "vet", "est-yam", "Vétérinaire — productions animales", "+225 07 00 00 10 03"),
-  u("u-asst1", "Koffi Bamba", "assistant@bircovet.demo", "assistant", "est-abj", "Assistant technique vétérinaire", "+225 07 00 00 10 04"),
-  u("u-asst2", "Mariam Ouattara", "assistant2@bircovet.demo", "assistant", "est-yam", "Assistante technique terrain", "+225 07 00 00 10 05"),
-  u("u-acc", "Adjoua Yao", "accueil@bircovet.demo", "accueil", "est-abj", "Chargée d'accueil et de stock", "+225 07 00 00 10 06"),
-  u("u-cpt", "Serge Akissi", "comptable@bircovet.demo", "comptable", "est-abj", "Consultant comptable externe", "+225 07 00 00 10 07"),
-  u("u-conf", "Dr Ibrahim Diallo", "confrere@bircovet.demo", "confrere", "est-abj", "Confrère référent (cabinet externe fictif)", "+225 07 00 00 10 08", {
+  u("u-dg", "Dr Aya Kouassi", "dg@cliva.demo", "dg", "est-abj", "Directrice générale, Docteur vétérinaire", "+225 07 00 00 10 01"),
+  u("u-vet1", "Dr Yao N'Guessan", "vet@cliva.demo", "vet", "est-abj", "Vétérinaire praticien", "+225 07 00 00 10 02"),
+  u("u-vet2", "Dr Fatou Traoré", "vet2@cliva.demo", "vet", "est-yam", "Vétérinaire — productions animales", "+225 07 00 00 10 03"),
+  u("u-asst1", "Koffi Bamba", "assistant@cliva.demo", "assistant", "est-abj", "Assistant technique vétérinaire", "+225 07 00 00 10 04"),
+  u("u-asst2", "Mariam Ouattara", "assistant2@cliva.demo", "assistant", "est-yam", "Assistante technique terrain", "+225 07 00 00 10 05"),
+  u("u-acc", "Adjoua Yao", "accueil@cliva.demo", "accueil", "est-abj", "Chargée d'accueil et de stock", "+225 07 00 00 10 06"),
+  u("u-cpt", "Serge Akissi", "comptable@cliva.demo", "comptable", "est-abj", "Consultant comptable externe", "+225 07 00 00 10 07"),
+  u("u-conf", "Dr Ibrahim Diallo", "confrere@cliva.demo", "confrere", "est-abj", "Confrère référent (cabinet externe fictif)", "+225 07 00 00 10 08", {
     sharedPatientIds: ["pat-001", "pat-004"],
   }),
-  u("u-old", "Paul Gnamien", "ancien.assistant@bircovet.demo", "assistant", "est-abj", "Ancien assistant (compte désactivé)", "+225 07 00 00 10 09", {
+  u("u-old", "Paul Gnamien", "ancien.assistant@cliva.demo", "assistant", "est-abj", "Ancien assistant (compte désactivé)", "+225 07 00 00 10 09", {
     active: false,
   }),
 ];
@@ -172,10 +173,10 @@ export const ACCOUNTS: Account[] = [
 ];
 
 export const TEMPLATES: MessageTemplate[] = [
-  { id: "tpl-1", name: "Rappel de rendez-vous", channel: "sms", body: "Bonjour {client}, BIRCOVET vous rappelle le rendez-vous de {patient} le {date}. Merci de confirmer. (message de démonstration)" },
+  { id: "tpl-1", name: "Rappel de rendez-vous", channel: "sms", body: "Bonjour {client}, Cliva vous rappelle le rendez-vous de {patient} le {date}. Merci de confirmer. (message de démonstration)" },
   { id: "tpl-2", name: "Rappel de vaccination", channel: "whatsapp", body: "Bonjour {client}, le rappel vaccinal de {patient} est prévu autour du {date} selon le protocole défini par votre vétérinaire. (démonstration)" },
   { id: "tpl-3", name: "Relance facture", channel: "email", body: "Bonjour {client}, sauf erreur de notre part, la facture {facture} présente un solde de {montant}. (démonstration — aucun envoi réel)" },
-  { id: "tpl-4", name: "Suivi après consultation", channel: "sms", body: "Bonjour {client}, comment se porte {patient} depuis sa consultation ? L'équipe BIRCOVET. (démonstration)" },
+  { id: "tpl-4", name: "Suivi après consultation", channel: "sms", body: "Bonjour {client}, comment se porte {patient} depuis sa consultation ? L'équipe Cliva. (démonstration)" },
   { id: "tpl-5", name: "Suivi après hospitalisation", channel: "whatsapp", body: "Bonjour {client}, nous prenons des nouvelles de {patient} suite à sa sortie. (démonstration)" },
 ];
 
@@ -186,11 +187,11 @@ export const TRAININGS: Training[] = [
 ];
 
 export const SETTINGS: Settings = {
-  clinicName: "BIRCOVET",
-  legalName: "BIRCOVET — Clinique vétérinaire (données fictives)",
+  clinicName: "Cliva",
+  legalName: "Cliva — Clinique vétérinaire (données fictives)",
   address: "Cocody Riviera 2, Abidjan, Côte d'Ivoire (adresse fictive)",
   phone: "+225 27 22 00 00 01",
-  email: "contact@bircovet.demo",
+  email: "contact@cliva.demo",
   currency: "XOF",
   dateFormat: "dd/MM/yyyy",
   compactTables: false,
@@ -206,7 +207,9 @@ export const SETTINGS: Settings = {
   notifyExpiry: true,
   notifyOverdueInvoices: true,
   notifyTasks: true,
-  documentFooter: "DÉMONSTRATION — SANS VALEUR FISCALE. Document généré par l'environnement de test BIRCOVET.",
+  documentFooter: "DÉMONSTRATION — SANS VALEUR FISCALE. Document généré par l'environnement de test Cliva.",
   invoicePrefix: "DEMO-FAC",
   quotePrefix: "DEMO-DEV",
+  branding: { ...DEFAULT_BRANDING },
+  promo: { active: false, title: "", text: "", imageDataUrl: "", link: "", from: "", to: "" },
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import AccessDenied from "@/components/common/AccessDenied";
+import MiniMarc from "@/components/mini-marc/MiniMarc";
 import { SplashScreen, useDemo } from "@/context/DemoStoreContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { usePathname, useRouter } from "@/i18n/navigation";
@@ -36,6 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AppHeader />
         <main className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4 md:p-6 print:p-0">{allowed ? <Suspense fallback={null}>{children}</Suspense> : <AccessDenied what={mod ? MODULE_LABELS[mod] : undefined} />}</main>
       </div>
+      {allowed && <MiniMarc />}
     </div>
   );
 }

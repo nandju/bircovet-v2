@@ -22,6 +22,7 @@ import type {
   Payment,
   PaymentMethod,
   Prescription,
+  Product,
   PurchaseOrder,
   Quote,
   Reception,
@@ -32,7 +33,7 @@ import type {
 } from "../types";
 import { ACCOUNTS, ESTABLISHMENTS, PRODUCTS, SETTINGS, SUPPLIERS, TEMPLATES, TRAININGS, USERS } from "./base";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 
 function rng(seed: number) {
   let a = seed;
@@ -172,6 +173,8 @@ export function createSeed(now: Date = new Date()): DemoDB {
       insurance: r() < 0.15 ? "Assurance animale fictive — contrat démo" : "",
       color: pick(["Fauve", "Noir", "Blanc", "Tricolore", "Bringé", "Gris"]),
       ownerId,
+      photos: [],
+      exams: [],
       ownerHistory: [{ clientId: ownerId, from: D(-int(300, 900)), reason: "Premier enregistrement" }],
       allergies: r() < 0.15 ? ["Allergie déclarée (donnée fictive)"] : [],
       alerts: r() < 0.12 ? ["Animal craintif — manipulation prudente"] : [],
@@ -733,6 +736,41 @@ export function createSeed(now: Date = new Date()): DemoDB {
   hospitalizations[2].invoiceId = hospInv.id;
 
   /* ---------------- Missions ---------------- */
+  /** Enrichissement notice de quelques produits (données fictives de démonstration). */
+  const PRODUCT_ENRICH: Record<string, Partial<Product>> = {
+    "prd-01": {
+      activeIngredient: "Amoxicilline (fictif)",
+      targetSpecies: "Chien, chat",
+      posologie: "Selon notice fictive — validation vétérinaire requise.",
+      contraIndications: "Hypersensibilité aux bêta-lactamines (notice fictive).",
+      conservation: "À l'abri de l'humidité, < 25 °C.",
+      dosage: { perKg: 15, unit: "mg/kg", species: "Chien/Chat", note: "Dosage fictif de démonstration — toujours vérifier la notice réelle." },
+    },
+    "prd-03": {
+      activeIngredient: "NaCl 0,9 % (fictif)",
+      targetSpecies: "Usage humain — usage vétérinaire à la discrétion du vétérinaire",
+      humanUse: true,
+      conservation: "Température ambiante.",
+      contraIndications: "Produit à usage humain : ne pas extrapoler la posologie humaine à un animal sans référence vétérinaire validée.",
+    },
+    "prd-06": { activeIngredient: "Vaccin rabique inactivé (fictif)", targetSpecies: "Chien, chat", conservation: "Chaîne du froid +2/+8 °C.", posologie: "1 dose SC/an selon notice fictive." },
+    "prd-12": {
+      activeIngredient: "Praziquantel + pyrantel (fictif)",
+      targetSpecies: "Chien, chat",
+      posologie: "Selon poids — notice fictive.",
+      conservation: "Température ambiante.",
+      dosage: { perKg: 5, unit: "mg/kg", species: "Chien/Chat", note: "Dosage fictif de démonstration." },
+    },
+    "prd-13": {
+      activeIngredient: "Ivermectine 1 % (fictif)",
+      targetSpecies: "Bovin, ovin, caprin, porc",
+      posologie: "0,2 mg/kg SC selon notice fictive.",
+      contraIndications: "Colleys et races apparentées (notice fictive).",
+      conservation: "À l'abri de la lumière, < 30 °C.",
+      dosage: { perKg: 0.2, unit: "mg/kg", species: "Bovin/Ovin/Caprin/Porc", note: "Dosage fictif de démonstration." },
+    },
+  };
+
   const missions: Mission[] = [];
   const mkMission = (n: number, farmIdx: number, off: number, status: Mission["status"], objective: string, interventions: string[]): Mission => {
     const farm = farms[farmIdx];
@@ -740,6 +778,14 @@ export function createSeed(now: Date = new Date()): DemoDB {
       id: `mis-${pad(n, 3)}`,
       code: `MIS-${pad(n)}`,
       objective,
+      category: n === 4 ? "interne" : "exploitation",
+      serviceType: n === 4 ? "consultance" : n === 3 ? "consultance" : "intervention",
+      actionItems:
+        n === 1
+          ? [{ id: "ma-1", label: "Contrôle des anticorps à J+21 (fictif)", assigneeId: "u-vet1", dueDate: D(-9), done: true, note: "Résultats conformes (démo)" }]
+          : n === 2
+            ? [{ id: "ma-2", label: "Rappeler le responsable pour la pesée témoin", assigneeId: "u-asst2", dueDate: D(7), done: false }]
+            : [],
       date: D(off),
       endDate: D(off),
       location: `${farm.name} — ${farm.location}`,
@@ -889,7 +935,7 @@ export function createSeed(now: Date = new Date()): DemoDB {
       attendance: Object.fromEntries(dates.map((d) => [d, r() < 0.85])),
     }));
   const sessions: TrainingSession[] = [
-    { id: "ses-001", code: "SES-0001", trainingId: "trn-1", title: "Biosécurité en élevage avicole — Session de novembre", description: TRAININGS[0].description, startDate: D(10), endDate: D(11), location: "Salle de formation BIRCOVET Cocody", modality: "presentiel", capacity: 6, trainers: ["Dr Aya Kouassi", "Dr Fatou Traoré"], participants: mkParticipants(5, "ses-001", []), status: "ouverte", price: 75000, history: [{ date: D(-20), userId: "u-dg", action: "Session créée" }] },
+    { id: "ses-001", code: "SES-0001", trainingId: "trn-1", title: "Biosécurité en élevage avicole — Session de novembre", description: TRAININGS[0].description, startDate: D(10), endDate: D(11), location: "Salle de formation Cliva Cocody", modality: "presentiel", capacity: 6, trainers: ["Dr Aya Kouassi", "Dr Fatou Traoré"], participants: mkParticipants(5, "ses-001", []), status: "ouverte", price: 75000, history: [{ date: D(-20), userId: "u-dg", action: "Session créée" }] },
     { id: "ses-002", code: "SES-0002", trainingId: "trn-3", title: "Gestion d'une pharmacie vétérinaire", description: TRAININGS[2].description, startDate: D(-20), endDate: D(-20), location: "Yamoussoukro", modality: "presentiel", capacity: 10, trainers: ["Dr Yao N'Guessan"], participants: mkParticipants(7, "ses-002", [D(-20)]), status: "terminee", price: 50000, history: [{ date: D(-40), userId: "u-dg", action: "Session créée" }] },
     { id: "ses-003", code: "SES-0003", trainingId: "trn-2", title: "Premiers soins canins — en ligne", description: TRAININGS[1].description, startDate: D(30), endDate: D(30), location: "Classe virtuelle (lien fourni après intégration)", modality: "distanciel", capacity: 20, trainers: ["Dr Yao N'Guessan"], participants: mkParticipants(3, "ses-003", []), status: "planifiee", price: 35000, history: [{ date: D(-5), userId: "u-dg", action: "Session créée" }] },
   ];
@@ -944,7 +990,7 @@ export function createSeed(now: Date = new Date()): DemoDB {
     prescriptions,
     hospitalizations,
     missions,
-    products: PRODUCTS.map((x) => ({ ...x })),
+    products: PRODUCTS.map((x) => ({ ...x, ...(PRODUCT_ENRICH[x.id] ?? {}) })),
     lots,
     movements,
     corrections: [
@@ -974,6 +1020,94 @@ export function createSeed(now: Date = new Date()): DemoDB {
     audit,
     notifications,
     syncQueue: [],
+    consignments: [
+      {
+        id: "csg-1",
+        code: "DEP-0001",
+        clientId: farms[0].clientId,
+        productId: "prd-05",
+        qty: 10,
+        unitPrice: 4500,
+        date: D(-15),
+        status: "en_depot",
+        note: "Dépôt-vente chez le client (fictif) — non assimilé à une vente encaissée.",
+        history: [{ date: D(-15), userId: "u-vet1", action: "Dépôt enregistré" }],
+      },
+    ],
+    staffPosts: [
+      {
+        id: "post-1",
+        authorId: "u-dg",
+        date: DT(-2, 9),
+        text: "Rappel d'équipe : vérifier les péremptions avant chaque mission terrain (message fictif).",
+        pinned: true,
+        comments: [{ id: "pc-1", authorId: "u-asst1", date: DT(-2, 10), text: "Bien noté, contrôle fait hier (démo)." }],
+      },
+      {
+        id: "post-2",
+        authorId: "u-asst1",
+        date: DT(-1, 16),
+        text: "Le fournisseur démo confirme la livraison de jeudi — prévoir la réception (fictif).",
+        pinned: false,
+        comments: [],
+      },
+    ],
+    meetings: [
+      {
+        id: "mtg-1",
+        code: "REU-001",
+        title: "Réunion hebdomadaire de coordination (fictive)",
+        date: DT(-3, 9),
+        attendeeIds: ["u-dg", "u-vet1", "u-asst1", "u-acc1"],
+        report: "Points abordés : suivi des impayés, préparation de la mission bergerie, commande de vaccins (compte rendu fictif à valider avant diffusion).",
+        reportValidated: false,
+        actionItems: [
+          { id: "mga-1", label: "Relancer les clients en retard de paiement", assigneeId: "u-compta", dueDate: D(4), done: false },
+          { id: "mga-2", label: "Préparer le stock de la mission bergerie", assigneeId: "u-vet2", dueDate: D(3), done: false },
+        ],
+      },
+    ],
+    licences: [
+      {
+        id: "lic-1",
+        orgName: "Cliva Abidjan — Cocody (organisation de démonstration)",
+        period: "Licence annuelle 2026",
+        dueDate: D(90),
+        amount: 150000,
+        status: "en_attente",
+        history: [
+          { date: D(-275), action: "Paiement licence 2025 confirmé (fictif)", amount: 150000 },
+          { date: D(-30), action: "Échéance 2026 générée (fictive)" },
+        ],
+      },
+    ],
+    news: [
+      {
+        id: "news-1",
+        title: "Grippe aviaire : vigilance renforcée en Afrique de l'Ouest (exemple hors ligne)",
+        source: "Bulletin fictif — démonstration",
+        date: D(-5),
+        summary: "Exemple de veille : mesures de biosécurité à rappeler lors des visites d'exploitations. Contenu de démonstration, non vérifié.",
+        topic: "sante_animale",
+      },
+      {
+        id: "news-2",
+        title: "Bonnes pratiques de conservation des vaccins en zone chaude (exemple hors ligne)",
+        source: "Bulletin fictif — démonstration",
+        date: D(-12),
+        summary: "Exemple de veille : chaîne du froid, contrôle des températures, lots à quarantaine. Contenu de démonstration, non vérifié.",
+        topic: "pharmacie_vet",
+      },
+      {
+        id: "news-3",
+        title: "Suivi zootechnique : densités et ventilation des bâtiments avicoles (exemple hors ligne)",
+        source: "Bulletin fictif — démonstration",
+        date: D(-20),
+        summary: "Exemple de veille : points de contrôle à intégrer aux rapports de visite. Contenu de démonstration, non vérifié.",
+        topic: "elevage",
+      },
+    ],
+    orderReviews: [],
     aiConversations: [
       {
         id: "ai-1",

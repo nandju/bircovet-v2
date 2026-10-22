@@ -10,6 +10,8 @@ import { useState } from "react";
 import { ConsultationsChartCard, EstablishmentActivityCard, ExpensesChartCard, RevenueChartCard, SalesMixChartCard, SpeciesChartCard } from "./DashboardCharts";
 import DashboardKpis from "./DashboardKpis";
 import { InvoicesToFollowCard, QuickActionsCard, RecentActivityCard, StockAlertsCard, TodayAgendaCard, UpcomingAppointmentsCard, UpcomingMissionsCard, UrgentTasksCard } from "./DashboardLists";
+import NewsCard from "./NewsCard";
+import PromoBanner from "./PromoBanner";
 import SharedRecords from "./SharedRecords";
 import { useDashboardData } from "./useDashboardData";
 
@@ -39,6 +41,7 @@ export default function Dashboard() {
       />
       <DemoNotice>Indicateurs calculés à partir des données fictives enregistrées dans ce navigateur. Ils évoluent après chaque opération simulée (encaissement, consultation, délivrance…).</DemoNotice>
       <DashboardKpis data={data} />
+      <PromoBanner />
       <QuickActionsCard />
 
       <div className="grid grid-cols-12 gap-4 md:gap-6">
@@ -104,6 +107,9 @@ export default function Dashboard() {
         )}
         <div className="col-span-12 md:col-span-6 xl:col-span-4">
           <RecentActivityCard />
+        </div>
+        <div className="col-span-12 md:col-span-6 xl:col-span-4">
+          <NewsCard />
         </div>
       </div>
     </div>
