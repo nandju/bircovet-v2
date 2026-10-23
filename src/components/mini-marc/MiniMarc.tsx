@@ -3,7 +3,7 @@
 import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { ChevronDownIcon, CloseIcon, MicrophoneIcon, PaperPlaneIcon, SparklesIcon } from "@/icons";
+import { ChevronDownIcon, CloseIcon, CopyIcon, MicrophoneIcon, PaperPlaneIcon, RefreshIcon, SparklesIcon } from "@/icons";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 import { getRecentPages, installFieldTracker, matchIntents, SUGGESTIONS, trackPageVisit, type IntentAction } from "@/lib/miniMarc";
 import dynamic from "next/dynamic";
@@ -15,28 +15,39 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   actions?: IntentAction[];
+  /** Message d'erreur : propose une nouvelle tentative. */
+  error?: boolean;
 }
 
 const WELCOME: ChatMessage = {
   role: "assistant",
-  text: "Bonjour, je suis Mini Marc, l'assistant de la plateforme. Décrivez ce que vous souhaitez faire, ou utilisez l'onglet « Dictée » pour transformer votre voix en texte.",
+  text: "Bonjour, je suis Mini Marc. Je peux (1) discuter et rédiger — reformuler, résumer, préparer des brouillons, (2) transcrire votre voix en texte pour les formulaires (onglet « Dictée »), (3) vous guider vers les pages de la plateforme. Dites-moi ce que vous souhaitez faire.",
 };
+
+const TEXT_TOOLS: { label: string; prefix: string }[] = [
+  { label: "Reformuler", prefix: "Reformule ce texte, de façon claire et professionnelle : « " },
+  { label: "Corriger", prefix: "Corrige l'orthographe et la grammaire de ce texte, sans en changer le sens : « " },
+  { label: "Résumer", prefix: "Résume ce texte en quelques phrases : « " },
+];
 
 /**
  * Mini Marc — assistant flottant de Cliva.
- * Fonction A : dictée vocale → texte insérable dans les formulaires (contrôlé, annulable).
- * Fonction B : navigation et actions rapides vers les routes réelles, filtrées par les
- * permissions du profil. Moteur d'intentions local (démonstration) — aucune donnée
- * n'est envoyée à un service externe.
+ * Chat + rédaction : API serveur Gemini (clé côté serveur). Si le service n'est
+ * pas configuré, repli transparent sur le moteur d'intentions local (navigation
+ * uniquement, clairement identifié).
+ * Dictée : transcription serveur + dictée navigateur, insertion contrôlée.
  */
 export default function MiniMarc() {
-  const { can, db } = useDemo();
+  const { can, db, user } = useDemo();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"chat" | "dictation">("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [localMode, setLocalMode] = useState(false);
+  const [lastQuery, setLastQuery] = useState("");
   const [recent, setRecent] = useState<{ path: string; label: string }[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -50,33 +61,68 @@ export default function MiniMarc() {
   }, [open, pathname]);
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [messages]);
+  }, [messages, loading]);
 
   const platform = db.settings.branding?.platformName || DEFAULT_BRANDING.platformName;
 
-  const answer = (query: string) => {
+  /** Réponse du moteur local (repli sans API ou sans réseau). */
+  const localAnswer = (query: string): ChatMessage => {
     const intents = matchIntents(query);
     if (intents.length === 0) {
-      return {
-        role: "assistant" as const,
-        text: "Je n'ai pas trouvé de fonction correspondante dans la plateforme. Essayez par exemple : « ouvrir la pharmacie », « nouveau patient », « enregistrer une dépense », « rappels », ou choisissez une suggestion ci-dessous.",
-      };
+      return { role: "assistant", text: "Je n'ai pas trouvé de fonction correspondante (mode local — l'IA n'est pas configurée). Essayez « ouvrir la pharmacie », « nouveau patient », « enregistrer une dépense »… ou configurez GEMINI_API_KEY pour le chat complet." };
     }
     const actions = intents
       .flatMap((i) => i.actions)
       .filter((a) => !a.module || can(a.module, "read"))
       .filter((a, i, arr) => arr.findIndex((x) => x.path === a.path) === i);
     if (actions.length === 0) {
-      return { role: "assistant" as const, text: "Cette fonction existe, mais votre profil n'y a pas accès. Demandez à votre administrateur de vérifier les permissions." };
+      return { role: "assistant", text: "Cette fonction existe, mais votre profil n'y a pas accès. Demandez à votre administrateur de vérifier les permissions." };
     }
-    return { role: "assistant" as const, text: intents.map((i) => i.response).join(" "), actions };
+    return { role: "assistant", text: intents.map((i) => i.response).join(" "), actions };
   };
 
-  const send = (query: string) => {
+  const send = async (query: string) => {
     const q = query.trim();
-    if (!q) return;
-    setMessages((m) => [...m, { role: "user", text: q }, answer(q)]);
+    if (!q || loading) return;
     setInput("");
+    setLastQuery(q);
+    setMessages((m) => [...m, { role: "user", text: q }]);
+    setLoading(true);
+    try {
+      const history = [...messages.slice(-10), { role: "user" as const, text: q }];
+      const res = await fetch("/api/assistant/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history.map((m) => ({ role: m.role, text: m.text })), roleId: user?.roleId }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        reply?: { type: string; text: string };
+        action?: { key: string; label: string; path: string } | null;
+        error?: { code: string; message: string };
+      } | null;
+      if (!res.ok || !data?.reply) {
+        const code = data?.error?.code;
+        const message = data?.error?.message ?? "Le service IA est indisponible. Réessayez.";
+        if (code === "not_configured" || code === "model_unavailable") {
+          setLocalMode(true);
+          setMessages((m) => [...m, { role: "assistant", text: message, error: true }, localAnswer(q)]);
+        } else {
+          setMessages((m) => [...m, { role: "assistant", text: message, error: true }]);
+        }
+      } else {
+        setLocalMode(false);
+        setMessages((m) => [...m, { role: "assistant", text: data.reply!.text, actions: data.action ? [{ label: data.action.label, path: data.action.path }] : undefined }]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", text: "Impossible de joindre le serveur. Vérifiez votre connexion — le mode local de navigation reste disponible ci-dessous.", error: true }, localAnswer(q)]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyTool = (prefix: string) => {
+    const t = input.trim();
+    send(t ? `${prefix}${t} »` : `${prefix.replace(/ « $/, "")} — collez votre texte après les deux points : `);
   };
 
   return (
@@ -96,7 +142,7 @@ export default function MiniMarc() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">Mini Marc</p>
-            <p className="truncate text-[11px] text-white/75">Assistant {platform} — navigation et dictée</p>
+            <p className="truncate text-[11px] text-white/75">Assistant {platform}{localMode ? " — mode local (IA non configurée)" : " — chat, dictée, navigation"}</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="rounded-full p-1.5 text-white/80 hover:bg-white/15 hover:text-white" aria-label="Réduire">
             <ChevronDownIcon className="size-4" />
@@ -125,9 +171,23 @@ export default function MiniMarc() {
           <>
             <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${m.role === "user" ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"}`}>
-                    <p>{m.text}</p>
+                <div key={i} className={`group flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${m.role === "user" ? "bg-brand-500 text-white" : m.error ? "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"}`}>
+                    <p className="whitespace-pre-wrap">{m.text}</p>
+                    {m.role === "assistant" && !m.error && (
+                      <button
+                        type="button"
+                        onClick={() => void navigator.clipboard?.writeText(m.text)}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 opacity-0 transition group-hover:opacity-100 hover:text-brand-600"
+                      >
+                        <CopyIcon className="size-3" /> Copier
+                      </button>
+                    )}
+                    {m.error && lastQuery && i === messages.length - 1 && (
+                      <button type="button" onClick={() => void send(lastQuery)} className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-error-200 px-2 py-0.5 text-[11px] font-medium hover:bg-error-100 dark:border-error-500/30">
+                        <RefreshIcon className="size-3" /> Réessayer
+                      </button>
+                    )}
                     {m.actions && (
                       <div className="mt-2 flex flex-col gap-1.5">
                         {m.actions.map((a) => (
@@ -145,6 +205,13 @@ export default function MiniMarc() {
                   </div>
                 </div>
               ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-1.5 rounded-2xl bg-gray-100 px-3.5 py-2.5 dark:bg-gray-800" aria-label="Mini Marc réfléchit">
+                    {[0, 1, 2].map((d) => <span key={d} className="size-1.5 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: `${d * 150}ms` }} />)}
+                  </div>
+                </div>
+              )}
               {recent.length > 0 && (
                 <div>
                   <p className="mb-1.5 text-theme-xs font-medium text-gray-400">Pages récentes</p>
@@ -161,26 +228,32 @@ export default function MiniMarc() {
 
             <div className="border-t border-gray-200 p-3 dark:border-gray-700">
               <div className="mb-2 flex flex-wrap gap-1.5">
-                {SUGGESTIONS.slice(0, 3).map((s) => (
-                  <button key={s} type="button" onClick={() => send(s)} className="rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                    {s}
-                  </button>
-                ))}
+                {input.trim()
+                  ? TEXT_TOOLS.map((t) => (
+                      <button key={t.label} type="button" onClick={() => applyTool(t.prefix)} disabled={loading} className="rounded-full bg-brand-50 px-2.5 py-1 text-theme-xs font-medium text-brand-600 hover:bg-brand-100 disabled:opacity-40 dark:bg-brand-500/10 dark:text-brand-400">
+                        {t.label}
+                      </button>
+                    ))
+                  : SUGGESTIONS.slice(0, 3).map((s) => (
+                      <button key={s} type="button" onClick={() => void send(s)} disabled={loading} className="rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs text-gray-600 hover:bg-gray-200 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                        {s}
+                      </button>
+                    ))}
               </div>
               <form
                 className="flex items-center gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  send(input);
+                  void send(input);
                 }}
               >
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Décrivez ce que vous souhaitez faire…"
+                  placeholder="Question, texte à retravailler, navigation…"
                   className="h-10 flex-1 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 outline-none focus:border-brand-300 dark:border-gray-700 dark:text-white/90"
                 />
-                <Button size="sm" onClick={() => send(input)} disabled={!input.trim()} className="shrink-0" startIcon={<PaperPlaneIcon />}>
+                <Button size="sm" type="submit" disabled={!input.trim() || loading} className="shrink-0" startIcon={<PaperPlaneIcon />}>
                   Envoyer
                 </Button>
               </form>
