@@ -18,6 +18,7 @@ import type { PurchaseOrder } from "@/lib/types";
 import { printPage } from "@/utils/export";
 import { useState } from "react";
 import { PurchaseOrderModal, ReceptionModal } from "./PurchaseModals";
+import POBudgetBox from "@/components/budgets/POBudgetBox";
 
 export default function PurchaseOrderDetail({ id }: { id: string }) {
   const { db, run, can } = useDemo();
@@ -68,6 +69,7 @@ export default function PurchaseOrderDetail({ id }: { id: string }) {
           </>
         }
       />
+      <POBudgetBox po={po} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
         <ComponentCard title="Informations" className="lg:col-span-1">
           <InfoGrid

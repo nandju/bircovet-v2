@@ -63,7 +63,7 @@ export default function SessionDetail({ id }: { id: string }) {
           ["Tarif", formatXOF(s.price)],
           ["Statut", <StatusBadge key="s" kind="session" value={s.status} />],
         ].map(([l, v], i) => (
-          <div key={i} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/3">
+          <div key={i} className="rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-4 dark:border-gray-800 dark:bg-white/3">
             <p className="text-theme-xs text-gray-500">{l}</p>
             <div className="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{v}</div>
           </div>

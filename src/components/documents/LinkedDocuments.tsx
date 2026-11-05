@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/format";
 import type { DocumentItem, EntityRef } from "@/lib/types";
 import { useState } from "react";
 import { DocumentPreviewModal, DocumentUploadModal } from "./DocumentModals";
+import ExternalLinks from "./ExternalLinks";
 import { downloadDocument } from "./docFiles";
 
 /** Pièces jointes d'un dossier (client, patient, consultation, séjour, mission…). */
@@ -21,6 +22,7 @@ export default function LinkedDocuments({ refs, addTo }: { refs: EntityRef[]; ad
   const docs = db.documents.filter((d) => refs.some((r) => r.kind === d.linked.kind && r.id === d.linked.id));
   return (
     <div className="space-y-3">
+      {addTo && <ExternalLinks refTo={addTo} />}
       {addTo && can("documents", "create") && (
         <div className="flex justify-end">
           <Button size="sm" variant="outline" startIcon={<PlusIcon />} onClick={upload.openModal}>

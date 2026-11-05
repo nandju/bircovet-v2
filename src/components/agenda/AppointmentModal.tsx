@@ -1,4 +1,7 @@
 "use client";
+import ActivityIcon from "@/components/common/ActivityIcon";
+import { ACTIVITY_KINDS, kindFromText } from "@/lib/activityKinds";
+import { cn } from "@/utils";
 
 import AppModal from "@/components/common/AppModal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -15,6 +18,7 @@ import {
   cancelAppointment,
   confirmAppointment,
   createAppointment,
+  needsApproval,
   findConflicts,
   simulateReminder,
   updateAppointment,
@@ -31,20 +35,22 @@ interface Props {
 }
 
 export default function AppointmentModal({ isOpen, onClose, appointment, defaultStart }: Props) {
-  const { db, run, establishment, can } = useDemo();
+  const { db, run, establishment, can, user } = useDemo();
   const opts = useOptions();
   const cancel = useModal();
   const [v, setV] = useState<AppointmentInput | null>(null);
   const [force, setForce] = useState(false);
   const [moveReason, setMoveReason] = useState("");
+  const [note, setNote] = useState("");
 
   useEffect(() => {
     if (!isOpen || !establishment) return;
     setForce(false);
     setMoveReason("");
+    setNote("");
     setV(
       appointment
-        ? { establishmentId: appointment.establishmentId, clientId: appointment.clientId, patientId: appointment.patientId, practitionerId: appointment.practitionerId, start: appointment.start, durationMin: appointment.durationMin, reason: appointment.reason, resource: appointment.resource, reminder: { ...appointment.reminder } }
+        ? { establishmentId: appointment.establishmentId, clientId: appointment.clientId, patientId: appointment.patientId, practitionerId: appointment.practitionerId, start: appointment.start, durationMin: appointment.durationMin, reason: appointment.reason, resource: appointment.resource, reminder: { ...appointment.reminder }, kind: appointment.kind }
         : {
             establishmentId: establishment.id,
             clientId: "",
@@ -66,10 +72,11 @@ export default function AppointmentModal({ isOpen, onClose, appointment, default
   const editable = can("agenda", appointment ? "update" : "create") && !locked;
   const set = <K extends keyof AppointmentInput>(k: K, x: AppointmentInput[K]) => setV((s) => (s ? { ...s, [k]: x } : s));
   const moved = appointment && (appointment.start !== v.start || appointment.practitionerId !== v.practitionerId);
+  const ask = !appointment && !!v.practitionerId && !!user && needsApproval(db, v.practitionerId, user.id, user.roleId);
 
   const save = () => {
     const input = { ...v, patientId: v.patientId || undefined };
-    const r = appointment ? run(updateAppointment, { id: appointment.id, input, reason: moveReason, force }) : run(createAppointment, { input, force });
+    const r = appointment ? run(updateAppointment, { id: appointment.id, input, reason: moveReason, force }) : run(createAppointment, { input, force, note });
     if (r.ok) onClose();
   };
 
@@ -102,14 +109,27 @@ export default function AppointmentModal({ isOpen, onClose, appointment, default
               Fermer
             </Button>
             {editable && (
-              <Button size="sm" onClick={save} disabled={(conflicts.length > 0 && !force) || !v.clientId || !v.practitionerId || !v.start || !v.reason.trim()}>
-                {appointment ? (moved ? "Déplacer" : "Enregistrer") : "Créer"}
+              <Button size="sm" onClick={save} disabled={(conflicts.length > 0 && !force && !ask) || !v.clientId || !v.practitionerId || !v.start || !v.reason.trim()}>
+                {appointment ? (moved ? "Déplacer" : "Enregistrer") : ask ? "Envoyer la demande" : "Créer"}
               </Button>
             )}
           </>
         }
       >
         <div className="space-y-4">
+          {ask && (
+            <div className="space-y-2 rounded-xl border border-warning-200 bg-warning-50 px-3 py-2.5 text-theme-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-300">
+              <p><strong>Ce rendez-vous sera soumis à l&apos;accord de {userName(db, v.practitionerId)}.</strong> Dites au client que vous le rappelez pour confirmer.</p>
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Message pour le praticien (facultatif) : urgence, préférence du client…" aria-label="Message pour le praticien" className="h-9 w-full rounded-lg border border-warning-200 bg-white px-3 text-sm text-gray-800 dark:border-warning-500/30 dark:bg-gray-900 dark:text-white/90" />
+            </div>
+          )}
+          {appointment?.request && (
+            <p className="rounded-xl bg-gray-50 px-3 py-2 text-theme-sm text-gray-600 dark:bg-white/5 dark:text-gray-400">
+              Demandé par {userName(db, appointment.request.requestedById)} le {formatDateTime(appointment.request.requestedAt)}
+              {appointment.request.note && ` — « ${appointment.request.note} »`}
+              {appointment.request.decision && ` · ${appointment.request.decision === "refuse" ? "refusé" : "accepté"} par ${userName(db, appointment.request.decidedById)}`}
+            </p>
+          )}
           {appointment && (
             <div className="flex flex-wrap gap-2">
               <StatusBadge kind="appointment" value={appointment.status} />
@@ -125,6 +145,20 @@ export default function AppointmentModal({ isOpen, onClose, appointment, default
             <TextField label="Date et heure" required type="datetime-local" value={v.start} onChange={(x) => set("start", x)} disabled={!editable} />
             <NumberField label="Durée du créneau" suffix="min" value={v.durationMin} onChange={(x) => set("durationMin", x)} min={5} step={5} disabled={!editable} hint={`Créneau par défaut de l'établissement : ${est?.slotMinutes ?? 30} min (paramétrable)`} />
             <TextField label="Motif" required value={v.reason} onChange={(x) => set("reason", x)} disabled={!editable} />
+            <div className="sm:col-span-2">
+              <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-400">Type d&apos;activité <span className="font-normal text-gray-500">(icône dans l&apos;agenda)</span></p>
+              <div className="flex flex-wrap gap-1.5">
+                {ACTIVITY_KINDS.filter((k) => k.key !== "mission" && k.key !== "rapport").map((k) => {
+                  const on = (v.kind ?? kindFromText(v.reason)) === k.key;
+                  return (
+                    <button key={k.key} type="button" disabled={!editable} aria-pressed={on} onClick={() => set("kind", k.key)} className={cn("cliva-press inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-theme-xs", on ? "border-gray-800 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900" : "border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-300")}>
+                      <ActivityIcon kind={k.key} className={on ? "!text-current" : ""} />
+                      {k.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <SelectField label="Ressource" value={v.resource} onChange={(x) => set("resource", x)} options={(est?.resources ?? []).map((r) => ({ value: r, label: r }))} allowEmpty placeholder="Aucune" disabled={!editable} />
           </FormGrid>
           <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">

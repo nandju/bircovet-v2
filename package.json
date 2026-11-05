@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:rules": "tsc scripts/test-business-rules.ts --outDir scripts/tmp --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node scripts/tmp/scripts/test-business-rules.js"
+    "test:rules": "tsc scripts/test-business-rules.ts --outDir scripts/tmp --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict --resolveJsonModule && node scripts/tmp/scripts/test-business-rules.js"
   },
   "dependencies": {
     "@fullcalendar/react": "^7.1.0",

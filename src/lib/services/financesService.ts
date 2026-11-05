@@ -1,15 +1,26 @@
+import { findLine, lineUsage } from "../budgets";
 import { accountBalance } from "../calc";
 import { uid } from "../format";
+import { isHttpUrl } from "../protocols";
 import { audit, fail, must, nextCode, notify, positive, produce, requireOnline, requireRole, today, type Service } from "./core";
 
 /** Dépense : approuvée d'office si dans la délégation, sinon circuit de validation DG. */
-export const createExpense: Service<{ accountId: string; category: string; label: string; amount: number; date: string; attachmentName?: string; attachmentDataUrl?: string }> = (db, ctx, input) =>
+export const createExpense: Service<{ accountId: string; category: string; detail?: string; budgetLineId?: string; label: string; amount: number; date: string; attachmentName?: string; attachmentDataUrl?: string; projectId?: string; proofLinks?: { label: string; url: string }[]; photos?: { name: string; dataUrl: string }[] }> = (db, ctx, input) =>
   produce(db, (d) => {
     requireRole(ctx, ["dg", "accueil"], "saisie de dépense");
+    for (const l of input.proofLinks ?? []) if (!isHttpUrl(l.url)) fail(`Lien de preuve invalide : ${l.url || "(vide)"}`);
+    if ((input.photos?.length ?? 0) > 6) fail("6 photos maximum par dépense.");
+    if (input.projectId) {
+      const p = must((d.projects ?? []).find((x) => x.id === input.projectId), "Projet introuvable.");
+      if (p.status === "termine") fail("Ce projet est terminé : rouvrez-le pour y imputer une dépense.");
+    }
     positive(input.amount, "Le montant");
     if (!input.label.trim()) fail("Libellé requis.");
     must(d.accounts.find((a) => a.id === input.accountId), "Compte requis.");
-    const within = input.amount <= d.settings.expenseDelegationAmount;
+    // Hors budget validé (ou dépassement de la ligne imputée) : validation du DG obligatoire.
+    const line = findLine(d, input.budgetLineId);
+    const inBudget = !!line && line.budget.status === "valide" && lineUsage(d, line.line).left >= input.amount;
+    const within = input.amount <= d.settings.expenseDelegationAmount && (inBudget || !input.budgetLineId);
     const auto = within || ctx.user.roleId === "dg";
     if (auto && accountBalance(d, input.accountId) < input.amount) fail("Solde du compte insuffisant (simulation).");
     const code = nextCode(d, "expense", "DEP");
@@ -19,6 +30,8 @@ export const createExpense: Service<{ accountId: string; category: string; label
       date: input.date || today(ctx),
       accountId: input.accountId,
       category: input.category,
+      detail: input.detail || undefined,
+      budgetLineId: input.budgetLineId || undefined,
       label: input.label,
       amount: input.amount,
       status: auto ? "approuvee" : "en_attente",
@@ -29,6 +42,9 @@ export const createExpense: Service<{ accountId: string; category: string; label
       confidential: input.category === "Salaires",
       attachmentName: input.attachmentName,
       attachmentDataUrl: input.attachmentDataUrl,
+      projectId: input.projectId || undefined,
+      proofLinks: input.proofLinks?.length ? input.proofLinks.map((l) => ({ id: uid("prf"), label: l.label.trim() || "Preuve", url: l.url.trim(), addedById: ctx.user.id, addedAt: ctx.now })) : undefined,
+      photos: input.photos?.length ? input.photos.map((x) => ({ id: uid("pho"), name: x.name, dataUrl: x.dataUrl, addedById: ctx.user.id, addedAt: ctx.now })) : undefined,
     });
     if (!auto) notify(d, ctx, { title: "Dépense hors délégation", body: `${code} — ${input.label} (${input.amount} F) attend une validation DG.`, level: "info", link: "/finances/depenses" });
     audit(d, ctx, { module: "Finances", action: "Saisie de dépense", target: code, newValue: String(input.amount), decision: auto ? "Dans la délégation" : "Hors délégation — en attente DG" });
@@ -129,4 +145,17 @@ export const setOpeningBalance: Service<{ accountId: string; amount: number; dat
     a.openingDate = input.date;
     audit(d, ctx, { module: "Finances", action: "Solde d'ouverture", target: a.name, oldValue: String(old), newValue: String(input.amount) });
     return { message: "Solde d'ouverture mis à jour." };
+  });
+
+/** Nouveau compte de trésorerie (caisse, banque, mobile money). */
+export const createAccount: Service<{ name: string; type: "caisse" | "banque" | "mobile_money"; establishmentId: string; openingBalance: number; provider?: string }, string> = (db, ctx, input) =>
+  produce(db, (d) => {
+    requireRole(ctx, ["dg"], "création de compte");
+    if (!input.name.trim()) fail("Nom requis.");
+    if (d.accounts.some((a) => a.name.trim().toLowerCase() === input.name.trim().toLowerCase())) fail("Un compte porte déjà ce nom.");
+    if (input.openingBalance < 0) fail("Solde d'ouverture invalide.");
+    const id = uid("acc");
+    d.accounts.push({ id, name: input.name.trim(), type: input.type, establishmentId: input.establishmentId, openingBalance: input.openingBalance || 0, openingDate: ctx.now.slice(0, 10), provider: input.provider?.trim() || "" });
+    audit(d, ctx, { module: "Finances", action: "Création de compte", target: input.name.trim() });
+    return { message: `${input.type === "caisse" ? "Caisse" : "Compte"} « ${input.name.trim()} » créé(e).`, data: id };
   });

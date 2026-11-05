@@ -1,5 +1,6 @@
 "use client";
 
+import RevenueFamiliesCard from "@/components/revenue/RevenueFamiliesCard";
 import { AreaChart, DonutChart } from "@/components/charts/AppCharts";
 import ComponentCard from "@/components/common/ComponentCard";
 import DemoNotice from "@/components/common/DemoNotice";
@@ -30,6 +31,7 @@ export default function FinanceOverview() {
   return (
     <div className="space-y-4 md:space-y-6">
       <PageBreadcrumb pageTitle="Vue financière" subtitle="Montants en FCFA (XOF) — opérations simulées, aucun mouvement d'argent réel" />
+      <RevenueFamiliesCard />
       {!isDG && <DemoNotice>Les salaires et le résultat confidentiel sont réservés au profil DG. Les totaux affichés excluent les dépenses confidentielles.</DemoNotice>}
       <div className="grid grid-cols-1 gap-3 2xsm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Trésorerie totale (simulée)" value={formatXOF(treasury)} icon={<WalletIcon />} href="/finances/comptes" />

@@ -12,7 +12,7 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { useOptions } from "@/hooks/useOptions";
 import { accountBalance, accountName, clientName, userName } from "@/lib/calc";
 import { formatDate, formatXOF } from "@/lib/format";
-import { closeCash, createAccountTransfer, setOpeningBalance } from "@/lib/services/financesService";
+import { closeCash, createAccount, createAccountTransfer, setOpeningBalance } from "@/lib/services/financesService";
 import { cn } from "@/utils";
 import { useMemo, useState } from "react";
 
@@ -24,6 +24,7 @@ export default function AccountsPage() {
   const isDG = user?.roleId === "dg";
   const [selected, setSelected] = useState(db.accounts[0]?.id ?? "");
   const [modal, setModal] = useState<Modal>(null);
+  const [newAcc, setNewAcc] = useState<{ name: string; type: "caisse" | "banque" | "mobile_money"; establishmentId: string; openingBalance: number; provider: string } | null>(null);
   const [tr, setTr] = useState({ fromAccountId: "", toAccountId: "", amount: NaN, fees: 0, note: "" });
   const [cl, setCl] = useState({ accountId: "", counted: NaN, note: "" });
   const [op, setOp] = useState({ accountId: "", amount: NaN, date: "" });
@@ -55,6 +56,9 @@ export default function AccountsPage() {
             )}
             {isDG && (
               <>
+                <Button size="sm" variant="outline" onClick={() => setNewAcc({ name: "", type: "caisse", establishmentId: db.accounts.find((a) => a.id === selected)?.establishmentId ?? db.establishments[0].id, openingBalance: 0, provider: "" })}>
+                  Nouvelle caisse ou compte
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => { setOp({ accountId: selected, amount: db.accounts.find((a) => a.id === selected)?.openingBalance ?? 0, date: db.accounts.find((a) => a.id === selected)?.openingDate ?? today }); setModal("opening"); }}>
                   Solde d&apos;ouverture
                 </Button>
@@ -142,6 +146,17 @@ export default function AccountsPage() {
           </FormGrid>
         )}
       </AppModal>
+      {newAcc && (
+        <AppModal isOpen onClose={() => setNewAcc(null)} title="Nouvelle caisse ou compte" footer={<><Button size="sm" variant="outline" onClick={() => setNewAcc(null)}>Annuler</Button><Button size="sm" disabled={!newAcc.name.trim()} onClick={() => { const r = run(createAccount, newAcc); if (r.ok) { setNewAcc(null); if (r.data) setSelected(r.data); } }}>Créer</Button></>}>
+          <FormGrid>
+            <TextField label="Nom" required value={newAcc.name} onChange={(x) => setNewAcc({ ...newAcc, name: x })} placeholder="Ex. : Caisse pharmacie, Caisse terrain" className="sm:col-span-2" />
+            <SelectField label="Type" value={newAcc.type} onChange={(x) => setNewAcc({ ...newAcc, type: x as "caisse" | "banque" | "mobile_money" })} options={[{ value: "caisse", label: "Caisse (espèces)" }, { value: "banque", label: "Banque" }, { value: "mobile_money", label: "Mobile Money" }]} />
+            <SelectField label="Établissement" value={newAcc.establishmentId} onChange={(x) => setNewAcc({ ...newAcc, establishmentId: x })} options={db.establishments.map((e) => ({ value: e.id, label: e.name }))} />
+            <NumberField label="Solde d'ouverture" suffix="FCFA" value={newAcc.openingBalance} onChange={(x) => setNewAcc({ ...newAcc, openingBalance: x })} min={0} step={1000} />
+            <TextField label="Opérateur / banque" value={newAcc.provider} onChange={(x) => setNewAcc({ ...newAcc, provider: x })} />
+          </FormGrid>
+        </AppModal>
+      )}
     </div>
   );
 }

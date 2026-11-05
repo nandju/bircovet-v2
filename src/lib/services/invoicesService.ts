@@ -291,3 +291,17 @@ export const setFneStatus: Service<{ id: string; fne: NonNullable<Invoice["fneSt
     audit(d, ctx, { module: "Facturation", action: "Distinction FNE", target: inv.code, newValue: fne });
     return { message: "Marquage FNE enregistré (informatif — la conformité FNE n'est pas simulée)." };
   });
+
+/** Enregistre le numéro FNE de la facture (saisi depuis la plateforme DGI) ; la facture est alors marquée FNE. */
+export const setFneNumber: Service<{ id: string; number: string }> = (db, ctx, { id, number }) =>
+  produce(db, (d) => {
+    const inv = must(d.invoices.find((x) => x.id === id));
+    if (inv.kind !== "facture") fail("Le numéro FNE concerne les factures.");
+    const n = number.trim().toUpperCase();
+    if (n && d.invoices.some((x) => x.id !== id && x.fneNumber === n)) fail(`Ce numéro FNE est déjà utilisé par la facture ${d.invoices.find((x) => x.fneNumber === n)?.code}.`);
+    const old = inv.fneNumber;
+    inv.fneNumber = n || undefined;
+    if (n) inv.fneStatus = "fne";
+    audit(d, ctx, { module: "Facturation", action: "Numéro FNE", target: inv.code, oldValue: old ?? "—", newValue: n || "—" });
+    return { message: n ? `Numéro FNE ${n} enregistré.` : "Numéro FNE retiré." };
+  });

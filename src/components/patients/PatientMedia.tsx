@@ -15,9 +15,10 @@ import { optionsOf } from "@/lib/labels";
 import { addPatientExam, addPatientPhoto, removePatientPhoto } from "@/lib/services/patientsService";
 import { userName } from "@/lib/calc";
 import type { ExamType, Patient } from "@/lib/types";
+import { compressImage } from "@/utils/image";
 import { useState } from "react";
 
-const MAX_PHOTO_SIZE = 700 * 1024; // 700 Ko — photos persistées en data URL (démo locale)
+const MAX_PHOTO_SIZE = 8 * 1024 * 1024; // 8 Mo en entrée — compressée (max 1024 px, JPEG) avant stockage local
 
 /** Photos et examens complémentaires du dossier patient. */
 export default function PatientMedia({ patient, readOnly }: { patient: Patient; readOnly: boolean }) {
@@ -35,10 +36,10 @@ export default function PatientMedia({ patient, readOnly }: { patient: Patient; 
     setFile(null);
     if (!f) return;
     if (!f.type.startsWith("image/")) return setFileError("Image requise (PNG, JPG, WebP).");
-    if (f.size > MAX_PHOTO_SIZE) return setFileError("Image trop volumineuse : 700 Ko maximum en démonstration.");
-    const reader = new FileReader();
-    reader.onload = () => setFile({ dataUrl: String(reader.result), name: f.name });
-    reader.readAsDataURL(f);
+    if (f.size > MAX_PHOTO_SIZE) return setFileError("Image trop volumineuse : 8 Mo maximum.");
+    compressImage(f, 1024, 0.7)
+      .then((dataUrl) => setFile({ dataUrl, name: f.name }))
+      .catch(() => setFileError("Image illisible : réessayez avec un autre fichier."));
   };
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { vitalsText } from "@/lib/vitals";
 import AccessDenied from "@/components/common/AccessDenied";
 import ComponentCard from "@/components/common/ComponentCard";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -113,7 +114,7 @@ export default function ConsultationDetail({ id }: { id: string }) {
                   { label: "Patient", value: <Link className="text-brand-600 hover:underline" href={`/patients/${c.patientId}`}>{patientName(db, c.patientId)}</Link> },
                   { label: "Vétérinaire responsable", value: userName(db, c.vetId) },
                   { label: "Auteur de la saisie", value: userName(db, c.authorId) },
-                  { label: "Constantes", value: [c.weightKg && `${c.weightKg} kg`, c.temperature && `${c.temperature} °C`, c.heartRate && `${c.heartRate} bpm`].filter(Boolean).join(" · ") },
+                  { label: "Constantes", value: vitalsText(c) || "—", wide: true },
                   { label: "Contrôle recommandé", value: c.followUpDate ? formatDate(c.followUpDate) : "—" },
                   { label: "Anamnèse", value: c.anamnesis, wide: true },
                   { label: "Examen clinique", value: c.exam, wide: true },

@@ -102,7 +102,7 @@ export default function ReportsPage() {
         }
       />
       <DemoNotice>Statistiques recalculées à partir des données fictives de cette démonstration — elles ne proviennent d&apos;aucune base de données réelle.</DemoNotice>
-      <div className="grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5 dark:border-gray-800 dark:bg-white/3 print:hidden">
+      <div className="grid grid-cols-1 gap-2 rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-4 sm:grid-cols-2 lg:grid-cols-5 dark:border-gray-800 dark:bg-white/3 print:hidden">
         <Select value={preset} onChange={setPreset} options={PRESETS} />
         {preset === "custom" && (
           <>

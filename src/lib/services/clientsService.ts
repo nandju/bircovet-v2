@@ -38,6 +38,7 @@ export const updateClient: Service<{ id: string; patch: Partial<ClientInput> }> 
     const before = { name: c.name, phone: c.phone, email: c.email, segment: c.segment };
     Object.assign(c, patch);
     validate(c);
+    c.incomplete = false;
     c.lastActivityAt = ctx.now.slice(0, 10);
     audit(d, ctx, {
       module: "Clients",

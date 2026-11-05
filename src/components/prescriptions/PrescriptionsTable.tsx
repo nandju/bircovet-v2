@@ -8,7 +8,8 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { lotRef, patientName, productName, userName } from "@/lib/calc";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { CLINICAL_VALIDATORS } from "@/lib/permissions";
-import { cancelPrescription, delivered, remaining, submitPrescription, validatePrescription } from "@/lib/services/prescriptionsService";
+import { cancelPrescription, delivered, orderLines, remaining, submitPrescription, validatePrescription, validatePrescriptionOrder } from "@/lib/services/prescriptionsService";
+import { OrderPrint } from "./OrderSheet";
 import type { Prescription } from "@/lib/types";
 import { useState } from "react";
 
@@ -17,6 +18,7 @@ export default function PrescriptionsTable({ rows, onDeliver, showPatient }: { r
   const { db, run, user, can } = useDemo();
   const [cancel, setCancel] = useState<Prescription | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [print, setPrint] = useState<Prescription[] | null>(null);
   const validator = !!user && CLINICAL_VALIDATORS.includes(user.roleId);
   return (
     <>
@@ -27,7 +29,7 @@ export default function PrescriptionsTable({ rows, onDeliver, showPatient }: { r
         initialSort={{ key: "d", dir: "desc" }}
         emptyTitle="Aucune prescription"
         columns={[
-          { key: "d", header: "Ordonnance", primary: true, sortValue: (p) => p.date, render: (p) => <span className="flex flex-col"><span className="font-medium">{p.code}</span><span className="text-theme-xs text-gray-500">{formatDate(p.date)}</span></span> },
+          { key: "d", header: "Ordonnance", primary: true, sortValue: (p) => p.date, render: (p) => { const n = orderLines(db, p).length; return <span className="flex flex-col"><span className="font-medium">{p.orderCode ?? p.code}</span><span className="text-theme-xs text-gray-500">{formatDate(p.date)}{n > 1 ? ` · médicament ${p.lineNo}/${n}` : ""}{p.saleInvoiceId ? " · remis à la vente" : ""}</span></span>; } },
           ...(showPatient ? [{ key: "pt", header: "Patient", render: (p: Prescription) => patientName(db, p.patientId) }] : []),
           {
             key: "p",
@@ -65,10 +67,19 @@ export default function PrescriptionsTable({ rows, onDeliver, showPatient }: { r
                   </Button>
                 )}
                 {(p.status === "brouillon" || p.status === "a_valider") && validator && (
-                  <Button size="xs" variant="soft" onClick={() => run(validatePrescription, { id: p.id })}>
-                    Valider
-                  </Button>
+                  orderLines(db, p).length > 1 ? (
+                    <Button size="xs" variant="soft" onClick={() => run(validatePrescriptionOrder, { orderId: p.orderId! })}>
+                      Valider l&apos;ordonnance
+                    </Button>
+                  ) : (
+                    <Button size="xs" variant="soft" onClick={() => run(validatePrescription, { id: p.id })}>
+                      Valider
+                    </Button>
+                  )
                 )}
+                <Button size="xs" variant="ghost" onClick={() => setPrint(orderLines(db, p))}>
+                  Imprimer
+                </Button>
                 {(p.status === "validee" || p.status === "partiellement_delivree") && can("prescriptions", "update") && (
                   <Button size="xs" onClick={() => onDeliver(p)}>
                     Délivrer
@@ -84,6 +95,7 @@ export default function PrescriptionsTable({ rows, onDeliver, showPatient }: { r
           },
         ]}
       />
+      <OrderPrint lines={print} onClose={() => setPrint(null)} />
       <ConfirmDialog isOpen={!!cancel} onClose={() => setCancel(null)} title="Annuler la prescription" tone="danger" message="Les délivrances déjà réalisées restent tracées ; le reliquat ne sera plus délivrable." reasonLabel="Motif" onConfirm={(reason) => (cancel ? run(cancelPrescription, { id: cancel.id, reason }).ok : false)} />
     </>
   );

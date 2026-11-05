@@ -1,3 +1,4 @@
+import AnnouncementCarousel from "@/components/common/AnnouncementCarousel";
 import ClivaLogo from "@/components/common/ClivaLogo";
 import GridShape from "@/components/common/GridShape";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
@@ -29,6 +30,7 @@ export default async function AuthLayout({ children, params }: { children: React
             <p className="mt-10 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-theme-xs text-white/70">
               Environnement de démonstration frontend : toutes les données sont fictives et restent dans ce navigateur.
             </p>
+            <AnnouncementCarousel placement="connexion" tone="dark" className="mt-6 w-full" />
           </div>
         </div>
         <div className="fixed end-6 bottom-6 z-50 hidden sm:block">

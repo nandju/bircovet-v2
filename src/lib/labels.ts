@@ -33,6 +33,7 @@ export const STATUS = {
     mixte: ["Mixte", "light"],
   }),
   appointment: m({
+    demande: ["À valider", "warning"],
     planifie: ["Planifié", "info"],
     confirme: ["Confirmé", "primary"],
     honore: ["Honoré", "success"],
@@ -158,7 +159,11 @@ export const STATUS = {
     suivi_consultation: ["Suivi consultation", "primary"],
     suivi_hospitalisation: ["Suivi hospitalisation", "warning"],
     relance_inactif: ["Client inactif", "light"],
+    suivi_client: ["Suivi client", "primary"],
+    prospect: ["Prospect", "info"],
     administratif: ["Administratif", "dark"],
+    equipe: ["Tâche d'équipe", "primary"],
+    document: ["Document à produire", "info"],
   }),
   session: m({
     planifiee: ["Planifiée", "info"],
@@ -225,13 +230,26 @@ export const STATUS = {
 
 export type StatusKind = keyof typeof STATUS;
 
+/* Libellés renommés dans les paramètres (ex. catégories de produits). */
+let LABEL_OVERRIDES: Partial<Record<StatusKind, Record<string, string>>> = {};
+export function applyLabelOverrides(o: Partial<Record<StatusKind, Record<string, string>>>) {
+  LABEL_OVERRIDES = o;
+}
+
 export function labelOf(kind: StatusKind, value: string | undefined | null): string {
   if (value == null) return "—";
-  return (STATUS[kind] as LabelMap)[value]?.label ?? value;
+  return LABEL_OVERRIDES[kind]?.[value] || ((STATUS[kind] as LabelMap)[value]?.label ?? value);
+}
+
+/* Liste des catégories de produits définie par le DG (ordre et ajouts). */
+let CATEGORY_LIST: string[] | null = null;
+export function applyCategoryList(list: string[] | undefined) {
+  CATEGORY_LIST = list?.length ? list : null;
 }
 
 export function optionsOf(kind: StatusKind): { value: string; label: string }[] {
-  return Object.entries(STATUS[kind] as LabelMap).map(([value, v]) => ({ value, label: v.label }));
+  if (kind === "category" && CATEGORY_LIST) return CATEGORY_LIST.map((value) => ({ value, label: labelOf("category", value) }));
+  return Object.entries(STATUS[kind] as LabelMap).map(([value, v]) => ({ value, label: LABEL_OVERRIDES[kind]?.[value] || v.label }));
 }
 
 export const SPECIES = [

@@ -10,6 +10,12 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { establishmentName, lotRef, productName, userName } from "@/lib/calc";
 import { formatDateTime } from "@/lib/format";
 import { proposeInventory, setInventoryCount, startInventory, validateInventory } from "@/lib/services/inventoryService";
+import AppModal from "@/components/common/AppModal";
+import { SelectField, TextField } from "@/components/form/Field";
+import PrintSheet from "@/components/print/PrintSheet";
+import { PrinterIcon } from "@/icons";
+import { formatXOF } from "@/lib/format";
+import { labelOf, optionsOf } from "@/lib/labels";
 import { cn } from "@/utils";
 import { useState } from "react";
 
@@ -17,6 +23,22 @@ export default function InventoriesPage() {
   const { db, run, establishment, user, can } = useDemo();
   const [openId, setOpenId] = useState<string | null>(db.inventories.find((i) => i.status !== "valide")?.id ?? null);
   const inv = db.inventories.find((i) => i.id === openId);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scope, setScope] = useState({ category: "", search: "" });
+  const [lf, setLf] = useState({ q: "", cat: "", gapsOnly: false });
+  const [print, setPrint] = useState(false);
+  const lineInfo = (lotId: string) => {
+    const lot = db.lots.find((x) => x.id === lotId);
+    const prod = db.products.find((x) => x.id === lot?.productId);
+    return { lot, prod };
+  };
+  const lines = (inv?.lines ?? []).filter((l) => {
+    const { prod } = lineInfo(l.lotId);
+    const delta = l.counted === null ? null : l.counted - l.expected;
+    return (!lf.q || `${prod?.name ?? ""} ${lotRef(db, l.lotId)}`.toLowerCase().includes(lf.q.toLowerCase())) && (!lf.cat || prod?.category === lf.cat) && (!lf.gapsOnly || (delta !== null && delta !== 0));
+  });
+  const gaps = (inv?.lines ?? []).filter((l) => l.counted !== null && l.counted !== l.expected);
+  const gapValue = gaps.reduce((s, l) => s + (l.counted! - l.expected) * (lineInfo(l.lotId).lot?.unitCost ?? 0), 0);
   return (
     <div className="space-y-4 md:space-y-6">
       <PageBreadcrumb
@@ -24,7 +46,7 @@ export default function InventoriesPage() {
         trail={[{ label: "Stock", href: "/stock" }]}
         actions={
           can("stock", "create") && (
-            <Button size="sm" onClick={() => { const r = run(startInventory, { establishmentId: establishment?.id ?? "" }); if (r.ok && r.data) setOpenId(r.data); }}>
+            <Button size="sm" onClick={() => setScopeOpen(true)}>
               Ouvrir un inventaire — {establishment?.city}
             </Button>
           )
@@ -40,7 +62,7 @@ export default function InventoriesPage() {
               <li key={i.id}>
                 <button onClick={() => setOpenId(i.id)} className={cn("flex w-full flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2.5 text-start text-sm hover:bg-gray-50 dark:hover:bg-white/3", openId === i.id && "bg-brand-25 dark:bg-brand-500/10")}>
                   <span>
-                    <strong>{i.code}</strong> — {establishmentName(db, i.establishmentId)} · {formatDateTime(i.date)} · {userName(db, i.authorId)}
+                    <strong>{i.code}</strong> — {establishmentName(db, i.establishmentId)} · {i.scope?.label ?? "Inventaire complet"} · {formatDateTime(i.date)} · {userName(db, i.authorId)}
                   </span>
                   <StatusBadge kind="inventory" value={i.status} />
                 </button>
@@ -51,10 +73,13 @@ export default function InventoriesPage() {
       </ComponentCard>
       {inv && (
         <ComponentCard
-          title={`${inv.code} — comptage`}
-          desc={`${inv.lines.filter((l) => l.counted !== null).length} / ${inv.lines.length} lignes comptées`}
+          title={`${inv.code} — ${inv.scope?.label ?? "Inventaire complet"}`}
+          desc={`${inv.lines.filter((l) => l.counted !== null).length} / ${inv.lines.length} lignes comptées · ${gaps.length} écart(s) · valeur des écarts ${formatXOF(gapValue)}`}
           actions={
             <>
+              <Button size="sm" variant="outline" startIcon={<PrinterIcon />} onClick={() => setPrint(true)}>
+                Écarts en PDF
+              </Button>
               {inv.status === "en_cours" && (
                 <Button size="sm" variant="secondary" onClick={() => run(proposeInventory, { id: inv.id })}>
                   Proposer les écarts
@@ -68,6 +93,18 @@ export default function InventoriesPage() {
             </>
           }
         >
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="search" aria-label="Filtrer par nom ou lot" placeholder="Nom ou lot" value={lf.q} onChange={(e) => setLf({ ...lf, q: e.target.value })} className="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+            <select aria-label="Catégorie" value={lf.cat} onChange={(e) => setLf({ ...lf, cat: e.target.value })} className="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90">
+              <option value="">Toutes catégories</option>
+              {optionsOf("category").map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+              <input type="checkbox" checked={lf.gapsOnly} onChange={(e) => setLf({ ...lf, gapsOnly: e.target.checked })} className="size-4 rounded border-gray-300" />
+              Écarts seulement
+            </label>
+            <span className="ms-auto text-theme-xs text-gray-500">{lines.length} ligne(s)</span>
+          </div>
           <div className="custom-scrollbar overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
@@ -79,7 +116,7 @@ export default function InventoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {inv.lines.map((l) => {
+                {lines.map((l) => {
                   const lot = db.lots.find((x) => x.id === l.lotId);
                   const delta = l.counted === null ? null : l.counted - l.expected;
                   return (
@@ -108,6 +145,45 @@ export default function InventoriesPage() {
             </table>
           </div>
         </ComponentCard>
+      )}
+      <AppModal
+        isOpen={scopeOpen}
+        onClose={() => setScopeOpen(false)}
+        size="sm"
+        title="Ouvrir un inventaire"
+        description={`${establishment?.name} · laissez vide pour un inventaire complet`}
+        footer={
+          <>
+            <Button size="sm" variant="outline" onClick={() => setScopeOpen(false)}>Annuler</Button>
+            <Button size="sm" onClick={() => { const r = run(startInventory, { establishmentId: establishment?.id ?? "", category: scope.category || undefined, search: scope.search || undefined }); if (r.ok && r.data) { setOpenId(r.data); setScopeOpen(false); setScope({ category: "", search: "" }); } }}>Ouvrir</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <SelectField label="Par catégorie" value={scope.category} onChange={(category) => setScope({ ...scope, category })} options={optionsOf("category")} allowEmpty placeholder="Toutes" />
+          <TextField label="Par nom d'article" value={scope.search} onChange={(search) => setScope({ ...scope, search })} placeholder="Ex. : vaccin, amoxicilline" />
+        </div>
+      </AppModal>
+      {inv && (
+        <PrintSheet
+          open={print}
+          onClose={() => setPrint(false)}
+          title={`Écarts d'inventaire ${inv.code}`}
+          filters={[establishmentName(db, inv.establishmentId), inv.scope?.label ?? "Inventaire complet", `ouvert le ${formatDateTime(inv.date)}`, labelOf("inventory", inv.status)]}
+          summary={<p><strong>{gaps.length}</strong> écart(s) sur {inv.lines.length} ligne(s) · valeur des écarts au coût d&apos;achat : <strong>{formatXOF(gapValue)}</strong></p>}
+          rows={gaps}
+          rowKey={(l) => l.lotId}
+          emptyText="Aucun écart compté."
+          columns={[
+            { header: "Article", render: (l) => lineInfo(l.lotId).prod?.name },
+            { header: "Catégorie", render: (l) => labelOf("category", lineInfo(l.lotId).prod?.category) },
+            { header: "Lot", render: (l) => lotRef(db, l.lotId) },
+            { header: "Théorique", align: "end", render: (l) => l.expected },
+            { header: "Compté", align: "end", render: (l) => l.counted },
+            { header: "Écart", align: "end", render: (l) => { const dl = l.counted! - l.expected; return dl > 0 ? `+${dl}` : dl; } },
+            { header: "Valeur", align: "end", render: (l) => formatXOF((l.counted! - l.expected) * (lineInfo(l.lotId).lot?.unitCost ?? 0)) },
+          ]}
+        />
       )}
     </div>
   );

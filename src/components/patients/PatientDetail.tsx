@@ -1,5 +1,6 @@
 "use client";
 
+import SpeciesIcon from "@/components/common/SpeciesIcon";
 import { AreaChart } from "@/components/charts/AppCharts";
 import AccessDenied from "@/components/common/AccessDenied";
 import Can from "@/components/common/Can";
@@ -24,6 +25,7 @@ import { delivered, remaining } from "@/lib/services/prescriptionsService";
 import { addPatientNote } from "@/lib/services/patientsService";
 import { cn } from "@/utils";
 import { useState } from "react";
+import PatientProphylaxis from "@/components/prophylaxis/PatientProphylaxis";
 import PatientFormModal from "./PatientFormModal";
 import PatientMedia from "./PatientMedia";
 import { DeathDialog, TransferModal, VaccinationModal, VitalModal } from "./PatientModals";
@@ -47,6 +49,7 @@ export default function PatientDetail({ id }: { id: string }) {
   const lastVital = p.vitals[p.vitals.length - 1];
   const dead = p.vitalStatus === "decede";
   const readOnly = user?.roleId === "confrere";
+  const owner = db.clients.find((x) => x.id === p.ownerId);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -82,13 +85,26 @@ export default function PatientDetail({ id }: { id: string }) {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 lg:grid-cols-[1fr_auto] dark:border-gray-800 dark:bg-white/3">
+      {(p.incomplete || owner?.incomplete) && !readOnly && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-theme-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-300">
+          <span>
+            <strong>Dossier enregistré rapidement.</strong>{" "}
+            {[p.incomplete && "complétez la fiche de l'animal (race, date de naissance, puce, robe…)", owner?.incomplete && "complétez la fiche du propriétaire (adresse, commune, e-mail…)"].filter(Boolean).join(" et ")}.
+          </span>
+          <span className="flex flex-wrap gap-2">
+            {p.incomplete && <Button size="xs" variant="soft" onClick={edit.openModal}>Compléter l&apos;animal</Button>}
+            {owner?.incomplete && <Button size="xs" variant="soft" onClick={() => router.push(`/clients/${owner.id}/modifier`)}>Compléter le propriétaire</Button>}
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-4 sm:p-5 lg:grid-cols-[1fr_auto] dark:border-gray-800 dark:bg-white/3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-lg font-semibold text-gray-800 dark:text-white/90">{p.name}</p>
             <StatusBadge kind="vital" value={p.vitalStatus} />
             <span className="text-sm text-gray-500">
-              {p.code} · {p.species} {p.breed} · {labelOf("sex", p.sex)} · {ageFrom(p.birthDate)}
+              {p.code} · <SpeciesIcon species={p.species} /> {p.species} {p.breed} · {labelOf("sex", p.sex)} · {ageFrom(p.birthDate)}
               {p.birthDateEstimated && " (estimé)"}
             </span>
           </div>
@@ -137,10 +153,10 @@ export default function PatientDetail({ id }: { id: string }) {
           { key: "general", label: "Vue générale" },
           { key: "consultations", label: "Consultations", count: consultations.length },
           { key: "prescriptions", label: "Prescriptions", count: prescriptions.length },
-          { key: "vaccins", label: "Vaccinations et rappels", count: p.vaccinations.length },
+          { key: "vaccins", label: "Vaccins et prophylaxie", count: p.vaccinations.length },
           { key: "hosp", label: "Hospitalisations", count: stays.length },
           { key: "media", label: "Photos et examens", count: p.photos.length + p.exams.length },
-          { key: "docs", label: "Documents" },
+          { key: "docs", label: "Documents et liens" },
           { key: "history", label: "Historique" },
         ]}
       />
@@ -234,6 +250,7 @@ export default function PatientDetail({ id }: { id: string }) {
         </ComponentCard>
       )}
 
+      {tab === "vaccins" && <PatientProphylaxis patientId={p.id} species={p.species} />}
       {tab === "vaccins" && (
         <ComponentCard
           title="Vaccinations et rappels"

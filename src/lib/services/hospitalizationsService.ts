@@ -1,3 +1,5 @@
+import { settingsOf } from "../followup";
+import { startPlanInDraft } from "./followUpService";
 import { daysBetween, uid } from "../format";
 import { pickLotsFEFO } from "../calc";
 import type { Hospitalization, InvoiceLine, LotAllocation } from "../types";
@@ -139,6 +141,10 @@ export const dischargePatient: Service<{ id: string; notes: string; followUpDate
     if (input.followUpDate)
       d.tasks.unshift({ id: uid("tsk"), title: `Suivi post-sortie ${h.code}`, description: input.followUpNotes || "Suivi après hospitalisation", assigneeId: h.vetId, priority: "normale", dueDate: input.followUpDate, status: "a_faire", category: "suivi_hospitalisation", clientId: h.clientId, patientId: h.patientId, result: "", history: [{ date: ctx.now, userId: ctx.user.id, action: "Tâche créée à la sortie médicale" }] });
     audit(d, ctx, { module: "Hospitalisation", action: "Sortie médicale", target: h.code, reason: "Le solde financier reste distinct" });
+    if (settingsOf(d).autoStart.hospitalisation) {
+      const pat = d.patients.find((p) => p.id === h.patientId);
+      startPlanInDraft(d, ctx, { clientId: h.clientId, patientId: h.patientId, source: "hospitalisation", sourceId: h.id, label: `Sortie d'hospitalisation ${h.code} — ${pat?.name ?? "patient"}`, motif: input.notes.slice(0, 120), ownerId: h.vetId });
+    }
     return { message: "Sortie médicale enregistrée. Le solde financier reste à traiter séparément." };
   });
 

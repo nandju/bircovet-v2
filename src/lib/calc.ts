@@ -74,6 +74,7 @@ export function accountBalance(db: DemoDB, accountId: string): number {
   let s = acc.openingBalance;
   for (const p of db.payments) if (p.accountId === accountId) s += p.amount;
   for (const e of db.expenses) if (e.accountId === accountId && e.status === "approuvee") s -= e.amount;
+  for (const b of db.bills ?? []) for (const p of b.payments) if (p.accountId === accountId) s -= p.amount;
   for (const t of db.accountTransfers) {
     if (t.fromAccountId === accountId) s -= t.amount + t.fees;
     if (t.toAccountId === accountId) s += t.amount;

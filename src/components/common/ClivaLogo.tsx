@@ -6,11 +6,14 @@ import { DEFAULT_BRANDING } from "@/lib/branding";
 import { cn } from "@/utils";
 
 /** Logo de la plateforme — reflète la personnalisation (nom, logo, slogan) des paramètres. */
-export default function ClivaLogo({ compact = false, className, light = false }: { compact?: boolean; className?: string; light?: boolean }) {
+export default function ClivaLogo({ compact = false, hideSlogan = false, className, light = false }: { compact?: boolean; hideSlogan?: boolean; className?: string; light?: boolean }) {
   const { db } = useDemo();
   const branding = db?.settings.branding ?? DEFAULT_BRANDING;
   const name = branding.platformName || DEFAULT_BRANDING.platformName;
-  const slogan = branding.slogan || "La clinique vétérinaire qui avance avec vous.";
+  // Le slogan enregistré commence souvent par le nom (« Cliva — … ») : on évite la répétition sous le nom.
+  const rawSlogan = branding.slogan || "La clinique vétérinaire qui avance avec vous.";
+  const stripped = rawSlogan.replace(new RegExp(`^\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[—–:-]\\s*`, "i"), "");
+  const slogan = stripped.charAt(0).toUpperCase() + stripped.slice(1);
   const logo = branding.logoDataUrl;
 
   return (
@@ -22,9 +25,11 @@ export default function ClivaLogo({ compact = false, className, light = false }:
         <LogoMark className="size-9 shrink-0" />
       )}
       {!compact && (
-        <span className="flex flex-col leading-none">
-          <span className={cn("text-lg font-bold tracking-wide", light ? "text-white" : "text-gray-900 dark:text-white")}>{name.toUpperCase()}</span>
-          <span className={cn("mt-0.5 text-[10px] font-medium tracking-[0.18em] uppercase", light ? "text-white/70" : "text-tertiary-600 dark:text-tertiary-400")}>{slogan}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className={cn("text-lg leading-tight font-bold tracking-wide", light ? "text-white" : "text-gray-900 dark:text-white")}>{name.toUpperCase()}</span>
+          {!hideSlogan && slogan && (
+            <span className={cn("line-clamp-2 max-w-44 text-[11px] leading-snug font-medium", light ? "text-white/70" : "text-gray-500 dark:text-gray-400")}>{slogan}</span>
+          )}
         </span>
       )}
     </span>

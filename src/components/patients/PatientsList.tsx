@@ -1,5 +1,6 @@
 "use client";
 
+import SpeciesIcon from "@/components/common/SpeciesIcon";
 import Can from "@/components/common/Can";
 import FilterBar from "@/components/common/FilterBar";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -19,12 +20,15 @@ import type { Patient } from "@/lib/types";
 import { exportCsv } from "@/utils/export";
 import { useEffect, useMemo, useState } from "react";
 import PatientFormModal from "./PatientFormModal";
+import QuickRegisterModal from "./QuickRegisterModal";
 
 export default function PatientsList() {
   const { db, user } = useDemo();
   const router = useRouter();
   const create = useModal();
+  const quick = useModal();
   const nouveau = useQueryParam("nouveau");
+  const rapide = useQueryParam("rapide");
   const defaultClient = useQueryParam("client") ?? undefined;
   const [q, setQ] = useState("");
   const [f, setF] = useState<Record<string, string>>({ vital: "vivant" });
@@ -32,6 +36,10 @@ export default function PatientsList() {
   useEffect(() => {
     if (nouveau) openCreate();
   }, [nouveau, openCreate]);
+  const openQuick = quick.openModal;
+  useEffect(() => {
+    if (rapide) openQuick();
+  }, [rapide, openQuick]);
 
   const shared = useMemo(() => (user?.roleId === "confrere" ? new Set(user.sharedPatientIds ?? []) : null), [user]);
   const rows = useMemo(() => {
@@ -41,6 +49,7 @@ export default function PatientsList() {
         (!shared || shared.has(p.id)) &&
         (!f.species || p.species === f.species) &&
         (!f.vital || p.vitalStatus === f.vital) &&
+        (!f.dossier || (f.dossier === "incomplet" ? !!p.incomplete : !p.incomplete)) &&
         (!t || normalize(`${p.name} ${p.code} ${p.breed} ${p.chip} ${clientName(db, p.ownerId)}`).includes(t)),
     );
   }, [db, q, f, shared]);
@@ -55,13 +64,16 @@ export default function PatientsList() {
         <span className="flex items-center gap-2">
           <span className="flex flex-col">
             <span className="font-medium text-gray-800 dark:text-white/90">{p.name}</span>
-            <span className="text-theme-xs text-gray-500">{p.code}</span>
+            <span className="text-theme-xs text-gray-500">
+              {p.code}
+              {p.incomplete && <span className="ml-1.5 rounded-full bg-warning-50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">Fiche à compléter</span>}
+            </span>
           </span>
           {(p.alerts.length > 0 || p.allergies.length > 0) && <AlertTriangleIcon className="size-4 text-warning-500" aria-label="Alerte clinique" />}
         </span>
       ),
     },
-    { key: "species", header: "Espèce / race", sortValue: (p) => p.species, render: (p) => `${p.species} — ${p.breed || "—"}` },
+    { key: "species", header: "Espèce / race", sortValue: (p) => p.species, render: (p) => <span className="inline-flex items-center gap-1.5"><SpeciesIcon species={p.species} />{p.species} — {p.breed || "—"}</span> },
     { key: "sex", header: "Sexe", render: (p) => labelOf("sex", p.sex), hideOnMobile: true },
     { key: "age", header: "Âge", sortValue: (p) => p.birthDate, render: (p) => `${ageFrom(p.birthDate)}${p.birthDateEstimated ? " (est.)" : ""}` },
     { key: "owner", header: "Propriétaire", sortValue: (p) => clientName(db, p.ownerId), render: (p) => clientName(db, p.ownerId) },
@@ -85,6 +97,9 @@ export default function PatientsList() {
               Export CSV
             </Button>
             <Can module="patients" action="create">
+              <Button size="sm" variant="soft" startIcon={<PlusIcon />} onClick={quick.openModal}>
+                Enregistrement rapide
+              </Button>
               <Button size="sm" startIcon={<PlusIcon />} onClick={create.openModal}>
                 Nouveau patient
               </Button>
@@ -102,10 +117,12 @@ export default function PatientsList() {
           filters={[
             { key: "species", label: "Toutes les espèces", options: SPECIES.map((s) => ({ value: s, label: s })) },
             { key: "vital", label: "Tous les statuts", options: optionsOf("vital") },
+            { key: "dossier", label: "Tous les dossiers", options: [{ value: "incomplet", label: "Fiches à compléter" }, { value: "complet", label: "Fiches complètes" }] },
           ]}
         />
         <DataTable rows={rows} columns={columns} rowKey={(p) => p.id} onRowClick={(p) => router.push(`/patients/${p.id}`)} initialSort={{ key: "name", dir: "asc" }} emptyTitle="Aucun patient trouvé" />
       </Panel>
+      <QuickRegisterModal isOpen={quick.isOpen} onClose={quick.closeModal} onDone={(r) => { quick.closeModal(); router.push(`/patients/${r.patientId}`); }} />
       <PatientFormModal isOpen={create.isOpen} onClose={create.closeModal} defaultOwnerId={defaultClient} onCreated={(id) => router.push(`/patients/${id}`)} />
     </div>
   );

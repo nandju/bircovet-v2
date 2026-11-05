@@ -49,7 +49,7 @@ export default function AssistantPage() {
         L&apos;assistant ne décide jamais d&apos;un diagnostic, n&apos;invente ni dose ni prescription, n&apos;autorise aucune délivrance, ne modifie pas le stock, ne valide pas de facture, n&apos;autorise pas de crédit, n&apos;envoie aucun message et ne modifie pas le statut vital. Accepter un brouillon ne contourne aucune validation.
       </DemoNotice>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
-        <aside className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/3">
+        <aside className="space-y-3 rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-3 dark:border-gray-800 dark:bg-white/3">
           <Button size="sm" className="w-full" startIcon={<PlusIcon />} onClick={() => setConvId(undefined)}>Nouvelle conversation</Button>
           <p className="px-1 text-theme-xs font-medium text-gray-400 uppercase">Historique (fictif)</p>
           <ul className="custom-scrollbar max-h-72 space-y-1 overflow-y-auto lg:max-h-[50vh]">
@@ -67,7 +67,7 @@ export default function AssistantPage() {
           </ul>
         </aside>
 
-        <section className="flex min-h-[60vh] flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3">
+        <section className="flex min-h-[60vh] flex-col rounded-3xl border border-gray-200/70 bg-white shadow-cliva dark:border-gray-800 dark:bg-white/3">
           <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             {!conv?.messages.length && (
               <div className="flex flex-col items-center justify-center py-10 text-center">

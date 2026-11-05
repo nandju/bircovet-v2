@@ -7,6 +7,8 @@ import { CheckField, FormGrid, NumberField, SelectField, TextAreaField, TextFiel
 import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
 import { useTheme } from "@/context/ThemeContext";
+import WatermarkFields from "@/components/print/WatermarkFields";
+import { DEFAULT_WATERMARK } from "@/components/print/Watermark";
 import { contrastRatio, DEFAULT_BRANDING, FONT_OPTIONS, isValidHex } from "@/lib/branding";
 import { formatXOF } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
@@ -99,6 +101,9 @@ export default function SettingsPage() {
             <TextField label="Préfixe des devis (démo)" value={v.quotePrefix} onChange={(x) => set("quotePrefix", x)} />
             <TextAreaField label="Mention de pied de document" value={v.documentFooter} onChange={(x) => set("documentFooter", x)} rows={2} className="sm:col-span-2" hint="La mention « DÉMONSTRATION — SANS VALEUR FISCALE » doit rester présente." />
           </FormGrid>
+        </ComponentCard>
+        <ComponentCard title="Filigrane des documents imprimés">
+          <WatermarkFields value={v.watermark ?? DEFAULT_WATERMARK} onChange={(x) => set("watermark", x)} logo={branding.logoDataUrl} />
         </ComponentCard>
         <ComponentCard title="Personnalisation de la plateforme (Cliva)" className="xl:col-span-2">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

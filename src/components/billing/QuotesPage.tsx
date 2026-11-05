@@ -29,16 +29,18 @@ export default function QuotesPage() {
   }, [nouveau, openCreate]);
   const [q, setQ] = useState("");
   const [f, setF] = useState<Record<string, string>>({});
+  const legacy = db.invoices.filter((i) => i.kind === "proforma");
   const rows = useMemo(() => db.quotes.filter((x) => (!f.status || x.status === f.status) && (!q || normalize(`${x.code} ${clientName(db, x.clientId)}`).includes(normalize(q)))), [db, q, f]);
   return (
     <div>
       <PageBreadcrumb
-        pageTitle="Devis"
+        pageTitle="Devis / pro forma"
+        subtitle="Un seul document : il sert de devis comme de facture pro forma, puis se convertit en facture."
         trail={[{ label: "Facturation", href: "/facturation" }]}
         actions={
           <Can module="facturation" action="create">
             <Button size="sm" startIcon={<PlusIcon />} onClick={create.openModal}>
-              Nouveau devis
+              Nouveau devis / pro forma
             </Button>
           </Can>
         }
@@ -61,6 +63,17 @@ export default function QuotesPage() {
           emptyTitle="Aucun devis"
         />
       </Panel>
+      {legacy.length > 0 && (
+        <Panel className="mt-4">
+          <p className="px-4 pt-3 text-sm font-semibold text-gray-800 dark:text-white/90">Anciens pro forma ({legacy.length})</p>
+          <p className="px-4 text-theme-xs text-gray-500">Créés avant la fusion devis / pro forma : ils restent consultables et convertibles.</p>
+          <ul className="divide-y divide-gray-100 px-4 py-2 dark:divide-gray-800">
+            {legacy.map((p) => (
+              <li key={p.id}><button type="button" onClick={() => router.push(`/facturation/factures/${p.id}`)} className="flex w-full justify-between gap-2 py-2 text-start text-sm hover:text-brand-600"><span>{p.code} · {clientName(db, p.clientId)} · {formatDate(p.date)}</span><span className="tabular-nums">{formatXOF(docTotal(p.lines))}</span></button></li>
+            ))}
+          </ul>
+        </Panel>
+      )}
       <DocumentEditorModal isOpen={create.isOpen} onClose={create.closeModal} kind="devis" onCreated={(id) => router.push(`/facturation/devis/${id}`)} />
     </div>
   );

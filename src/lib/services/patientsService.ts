@@ -48,6 +48,7 @@ export const updatePatient: Service<{ id: string; patch: Partial<Omit<PatientInp
     void _w;
     Object.assign(p, rest);
     validate(p);
+    p.incomplete = false;
     audit(d, ctx, { module: "Patients", action: "Modification", target: `${p.code} — ${p.name}` });
     return { message: "Fiche patient enregistrée." };
   });

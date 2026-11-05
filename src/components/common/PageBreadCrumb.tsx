@@ -14,7 +14,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle, subtitle, trail 
   return (
     <div className="mb-5 flex flex-col gap-3 sm:mb-6 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <nav aria-label="Fil d'Ariane" className="mb-1.5">
+        <nav aria-label="Fil d'Ariane" className="mb-1.5 print:hidden">
           <ol className="flex flex-wrap items-center gap-1 text-theme-xs text-gray-500 dark:text-gray-400">
             <li>
               <Link className="inline-flex items-center gap-1 hover:text-brand-600" href="/">

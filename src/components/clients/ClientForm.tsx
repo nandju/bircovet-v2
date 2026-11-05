@@ -87,7 +87,10 @@ export default function ClientForm({ clientId }: { clientId?: string }) {
               <TextField label="E-mail" type="email" value={v.email} onChange={(x) => set("email", x)} error={errors.email} />
               <TextField label="Ville / commune" value={v.city} onChange={(x) => set("city", x)} />
               <TextField label="Adresse" value={v.address} onChange={(x) => set("address", x)} />
+              <SelectField label="Comment nous a-t-il connus ?" value={v.acquisition ?? ""} onChange={(x) => set("acquisition", x || undefined)} options={["Bouche-à-oreille", "Recommandé par un client", "Réseaux sociaux", "Passage devant la pharmacie", "Comptoir pharmacie", "Délégué / laboratoire", "Autre"].map((a) => ({ value: a, label: a }))} allowEmpty placeholder="Non renseigné" />
+              <TextField label="Recommandé par" value={v.referredBy ?? ""} onChange={(x) => set("referredBy", x || undefined)} hint="Nom du client, confrère ou partenaire qui l'a envoyé" />
             </FormGrid>
+            <p className="mt-3 text-theme-xs text-gray-500">Un client = une seule fiche : ses animaux de compagnie (patients) et ses exploitations (élevage) s&apos;ajoutent sur la même fiche, sans doublon.</p>
           </ComponentCard>
           <ComponentCard
             title="Contacts complémentaires"

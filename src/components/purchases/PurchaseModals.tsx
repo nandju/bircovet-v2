@@ -176,11 +176,37 @@ export function SupplierModal({ isOpen, onClose, supplier }: { isOpen: boolean; 
         <TextField label="Contact" value={v.contactName} onChange={(x) => set("contactName", x)} />
         <TextField label="Téléphone" value={v.phone} onChange={(x) => set("phone", x)} />
         <TextField label="E-mail" value={v.email} onChange={(x) => set("email", x)} />
-        <TextField label="Catégorie" value={v.category} onChange={(x) => set("category", x)} />
-        <TextField label="Conditions de paiement" value={v.paymentTerms} onChange={(x) => set("paymentTerms", x)} />
+        <SelectField label="Type" value={v.kind ?? "fournisseur"} onChange={(x) => set("kind", x as SupplierInput["kind"])} options={[{ value: "fournisseur", label: "Fournisseur (stock)" }, { value: "prestataire", label: "Prestataire de services" }]} />
+        <TextField label="Catégorie" value={v.category} onChange={(x) => set("category", x)} placeholder="Ex. : médicaments, électricité, maintenance…" />
+        <TextField label="Conditions de paiement" value={v.paymentTerms} onChange={(x) => set("paymentTerms", x)} hint="« Comptant », « 30 jours », « 45 jours fin de mois » : l'échéance des dettes en découle." />
         <SelectField label="Statut" value={v.status} onChange={(x) => set("status", x as SupplierInput["status"])} options={optionsOf("supplier")} />
         <TextField label="Adresse" value={v.address} onChange={(x) => set("address", x)} className="sm:col-span-2" />
+        <TextField label="NCC (compte contribuable)" value={v.ncc ?? ""} onChange={(x) => set("ncc", x || undefined)} placeholder="Ex. : 1234567 A" />
+        <TextField label="RCCM" value={v.rccm ?? ""} onChange={(x) => set("rccm", x || undefined)} placeholder="Ex. : CI-ABJ-2020-B-12345" />
+        <TextField label="Localisation" value={v.location ?? ""} onChange={(x) => set("location", x || undefined)} placeholder="Commune, quartier, repère" />
+        <TextField label="Coordonnées GPS" value={v.gps ?? ""} onChange={(x) => set("gps", x || undefined)} placeholder="5.3364, -4.0267" />
       </FormGrid>
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Intermédiaires (délégués, commerciaux, transitaires)</p>
+        <div className="space-y-2">
+          {(v.intermediaries ?? []).map((m, i) => {
+            const upd = (patch: Partial<typeof m>) => set("intermediaries", (v.intermediaries ?? []).map((x, j) => (j === i ? { ...x, ...patch } : x)));
+            return (
+              <div key={m.id} className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 p-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_1.2fr_auto] dark:border-gray-700">
+                <input aria-label="Nom" placeholder="Nom" value={m.name} onChange={(e) => upd({ name: e.target.value })} className="h-9 rounded-md border border-gray-200 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                <input aria-label="Rôle" placeholder="Rôle" value={m.role} onChange={(e) => upd({ role: e.target.value })} className="h-9 rounded-md border border-gray-200 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                <input aria-label="Société" placeholder="Société" value={m.company ?? ""} onChange={(e) => upd({ company: e.target.value })} className="h-9 rounded-md border border-gray-200 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                <input aria-label="Téléphone" placeholder="Téléphone" value={m.phone} onChange={(e) => upd({ phone: e.target.value })} className="h-9 rounded-md border border-gray-200 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                <input aria-label="E-mail" placeholder="E-mail" value={m.email ?? ""} onChange={(e) => upd({ email: e.target.value })} className="h-9 rounded-md border border-gray-200 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90" />
+                <button type="button" onClick={() => set("intermediaries", (v.intermediaries ?? []).filter((_, j) => j !== i))} className="text-theme-xs text-gray-400 hover:text-error-600">Retirer</button>
+              </div>
+            );
+          })}
+        </div>
+        <button type="button" onClick={() => set("intermediaries", [...(v.intermediaries ?? []), { id: `int-${Date.now()}`, name: "", role: "Délégué commercial", phone: "" }])} className="mt-2 text-theme-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+          + Ajouter un intermédiaire
+        </button>
+      </div>
     </AppModal>
   );
 }

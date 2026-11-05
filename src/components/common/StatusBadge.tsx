@@ -1,5 +1,5 @@
 import Badge from "@/components/ui/badge/Badge";
-import { STATUS, type LabelMap, type StatusKind } from "@/lib/labels";
+import { labelOf, STATUS, type LabelMap, type StatusKind } from "@/lib/labels";
 
 interface StatusBadgeProps {
   kind: StatusKind;
@@ -12,7 +12,7 @@ export default function StatusBadge({ kind, value, size = "sm" }: StatusBadgePro
   const s = (STATUS[kind] as LabelMap)[value];
   return (
     <Badge size={size} color={s?.tone ?? "light"}>
-      {s?.label ?? value}
+      {labelOf(kind, value)}
     </Badge>
   );
 }

@@ -5,6 +5,7 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 import DemoNotice from "@/components/common/DemoNotice";
 import InfoGrid from "@/components/common/InfoGrid";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import ApprovalButton from "@/components/approvals/ApprovalButton";
 import StatusBadge from "@/components/common/StatusBadge";
 import LinkedDocuments from "@/components/documents/LinkedDocuments";
 import { CheckField, NumberField, SelectField, TextAreaField } from "@/components/form/Field";
@@ -16,16 +17,24 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { clientName, lotBlockReason, lotRef, productName, userName } from "@/lib/calc";
 import { formatDate, formatDateTime, uid } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
-import { addMissionAction, invoiceMission, missionTransitions, reconcileMission, recordMissionUsage, saveMissionReport, setMissionStatus, toggleMissionAction, transferToMission } from "@/lib/services/missionsService";
+import { addMissionAction, invoiceMission, recordArrival, missionTransitions, reconcileMission, recordMissionUsage, saveMissionReport, setMissionStatus, toggleMissionAction, transferToMission } from "@/lib/services/missionsService";
 import type { MissionStatus } from "@/lib/types";
 import { useEffect, useState } from "react";
+import { CopyButton, waLink } from "@/components/crm/followup/FollowUpModals";
+import { composeReport, REPORT_SECTIONS, RURAL_LABEL, ruralTypeOf, SEVERITY } from "@/lib/rural";
 import MissionFormModal from "./MissionFormModal";
+import { ReportPhotos, ReportPrintButton } from "./MissionReportExtras";
+import CareCaseDetail from "@/components/care/CareCaseDetail";
+import CareCaseModal, { type CarePrefill } from "@/components/care/CareCaseModal";
+import CareList from "@/components/care/CareList";
 
 export default function MissionDetail({ id }: { id: string }) {
   const { db, run, today, can, session } = useDemo();
   const router = useRouter();
   const m = db.missions.find((x) => x.id === id);
   const [tab, setTab] = useState("general");
+  const [care, setCare] = useState<CarePrefill | null>(null);
+  const [careOpen, setCareOpen] = useState<string | null>(null);
   const edit = useModal();
   const [cancel, setCancel] = useState(false);
   const [tr, setTr] = useState({ lotId: "", qty: 1 });
@@ -34,16 +43,26 @@ export default function MissionDetail({ id }: { id: string }) {
   const [done, setDone] = useState<string[]>([]);
   const [observed, setObserved] = useState<{ farmId: string; lotLabel: string; count: number }[]>([]);
   const [inv, setInv] = useState({ clientId: "", amount: 85000 });
+  const [sections, setSections] = useState<Record<string, string>>({});
+  const [extras, setExtras] = useState<{ label: string; amount: number }[]>([]);
   useEffect(() => {
     if (!m) return;
     setReport(m.report);
     setDone(m.interventionsDone);
     setObserved(m.observedHeadcounts.length ? m.observedHeadcounts : m.farmIds.map((f) => ({ farmId: f, lotLabel: db.farms.find((x) => x.id === f)?.lots[0]?.name ?? "", count: 0 })));
     setUsage(Object.fromEntries(m.stock.map((s) => [s.id, { consumed: s.consumed, delivered: s.delivered, lost: s.lost, returned: s.returned }])));
-    setInv({ clientId: m.clientIds[0] ?? "", amount: 85000 });
+    const rt = ruralTypeOf(m);
+    setInv({ clientId: m.clientIds[0] ?? "", amount: rt === "urgence" ? 35000 : rt === "visite" ? 50000 : 85000 });
+    setExtras(rt === "urgence" ? [{ label: "Déplacement en urgence", amount: 15000 }, { label: "Majoration nuit / week-end", amount: 0 }] : rt === "visite" ? [{ label: "Frais de déplacement", amount: 10000 }] : []);
+    setSections(m.reportSections ?? (m.report ? { [REPORT_SECTIONS[rt][0].key]: m.report } : {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [m?.id, m?.stock.length, m?.status]);
   if (!m) return <p className="text-sm text-gray-500">Mission introuvable.</p>;
+  const rtype = ruralTypeOf(m);
+  const farmContact = db.farms.find((f) => f.id === m.farmIds[0]);
+  const reportText = composeReport(rtype, sections);
+  const reportPhone = m.emergency?.callerPhone || farmContact?.managerPhone || db.clients.find((c) => c.id === m.clientIds[0])?.phone || "";
+  const canBill = rtype === "urgence" ? m.status === "en_cours" || m.status === "terminee" : m.status === "terminee";
   const editable = can("missions", "update") && m.status !== "terminee" && m.status !== "annulee";
   const lots = db.lots.filter((l) => l.establishmentId === m.establishmentId && !lotBlockReason(l, today));
   const go = (s: MissionStatus) => (s === "annulee" ? setCancel(true) : run(setMissionStatus, { id: m.id, status: s }));
@@ -52,12 +71,13 @@ export default function MissionDetail({ id }: { id: string }) {
   return (
     <div className="space-y-4 md:space-y-6">
       <PageBreadcrumb
-        pageTitle={`${m.code} — ${m.objective}`}
+        pageTitle={`${RURAL_LABEL[rtype]} ${m.code} — ${m.objective}`}
         subtitle={`${formatDate(m.date)}${m.endDate !== m.date ? ` → ${formatDate(m.endDate)}` : ""} · ${m.location}`}
-        trail={[{ label: "Missions", href: "/missions" }]}
+        trail={[{ label: "Visites, urgences et missions", href: "/missions" }]}
         actions={
           <>
             <StatusBadge kind="mission" value={m.status} size="md" />
+            <ApprovalButton refKind="rapport" refId={m.id} link={`/missions/${m.id}`} title={`${RURAL_LABEL[rtype]} ${m.code} : `} detail={m.report.slice(0, 400)} />
             {editable && <Button size="sm" variant="outline" onClick={edit.openModal}>Modifier</Button>}
             {can("missions", "update") &&
               missionTransitions(m.status).map((s) => (
@@ -74,15 +94,35 @@ export default function MissionDetail({ id }: { id: string }) {
         tabs={[
           { key: "general", label: "Vue générale" },
           { key: "stock", label: "Préparation et stock", count: m.stock.length },
-          { key: "report", label: "Rapport et interventions" },
+          { key: "report", label: rtype === "visite" ? "Rapport de visite" : rtype === "urgence" ? "Rapport et prise en charge" : "Rapport et interventions" },
           { key: "reco", label: "Rapprochement" },
-          { key: "billing", label: "Facturation" },
-          { key: "docs", label: "Documents" },
+          { key: "billing", label: rtype === "urgence" ? "Facture de la prestation" : "Facturation" },
+          { key: "docs", label: "Documents et liens" },
         ]}
       />
 
       {tab === "general" && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+          {m.emergency && (
+            <section className="rounded-2xl border border-error-200 bg-error-25 p-4 sm:p-5 lg:col-span-2 dark:border-error-800 dark:bg-error-500/5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-error-800 dark:text-error-200">Appel d&apos;urgence</h3>
+                <span className={`rounded-full px-2 py-0.5 text-theme-xs font-medium ${SEVERITY[m.emergency.severity].cls}`}>{SEVERITY[m.emergency.severity].label}</span>
+              </div>
+              <p className="mt-2 text-sm text-gray-800 dark:text-white/90">{m.emergency.reason}</p>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div><dt className="text-theme-xs text-gray-500">Appel reçu</dt><dd className="tabular-nums">{m.emergency.calledAt ? formatDateTime(m.emergency.calledAt) : "—"}</dd></div>
+                <div><dt className="text-theme-xs text-gray-500">Appelant</dt><dd>{m.emergency.caller || "—"} {m.emergency.callerPhone && <span className="text-gray-500 tabular-nums select-all">· {m.emergency.callerPhone}</span>}</dd></div>
+                <div><dt className="text-theme-xs text-gray-500">Animaux concernés</dt><dd>{m.emergency.animals || "—"}</dd></div>
+                <div>
+                  <dt className="text-theme-xs text-gray-500">Arrivée sur place</dt>
+                  <dd className="tabular-nums">
+                    {m.emergency.arrivedAt ? `${formatDateTime(m.emergency.arrivedAt)} · ${Math.max(0, Math.round((new Date(m.emergency.arrivedAt).getTime() - new Date(m.emergency.calledAt).getTime()) / 60000))} min après l'appel` : can("missions", "update") && m.status === "en_cours" ? <Button size="xs" onClick={() => run(recordArrival, { id: m.id })}>Je suis arrivé</Button> : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
           <ComponentCard title="Mission">
             <InfoGrid
               items={[
@@ -118,6 +158,7 @@ export default function MissionDetail({ id }: { id: string }) {
                     {a.assigneeId ? userName(db, a.assigneeId) : "Non assigné"}
                     {a.dueDate && <span className={!a.done && a.dueDate < today ? "font-medium text-error-600" : ""}>{a.dueDate < today && !a.done ? "en retard · " : ""}{formatDate(a.dueDate)}</span>}
                     {a.note && <span className="text-gray-400">— {a.note}</span>}
+                    {!a.done && <ApprovalButton refKind="action" refId={a.id} link={`/missions/${m.id}`} title={a.label} detail={`Action issue de ${m.code} (${m.objective}).`} size="xs" label="Aval" />}
                   </span>
                 </li>
               ))}
@@ -184,9 +225,32 @@ export default function MissionDetail({ id }: { id: string }) {
               </div>
             ))}
           </div>
-          <TextAreaField label="Rapport (fictif)" value={report} onChange={setReport} rows={5} />
-          <div className="flex justify-end">
-            <Button size="sm" disabled={m.status === "annulee" || !can("missions", "update")} onClick={() => run(saveMissionReport, { id: m.id, report, interventionsDone: done, observed })}>
+          <ReportPhotos m={m} />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {REPORT_SECTIONS[rtype].map((s) => (
+              <TextAreaField key={s.key} label={s.label} value={sections[s.key] ?? ""} onChange={(x) => setSections({ ...sections, [s.key]: x })} rows={3} placeholder={s.hint} disabled={m.status === "annulee" || !can("missions", "update")} />
+            ))}
+          </div>
+          {m.farmIds.length > 0 && (
+            <div className="space-y-2 rounded-2xl bg-orange-25 p-3 dark:bg-orange-500/5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-800 dark:text-white/90">Consultations et prises en charge de la mission</p>
+                {can("exploitations", "update") && m.farmIds.map((fid) => <Button key={fid} size="xs" onClick={() => setCare({ farmId: fid, missionId: m.id })}>+ {db.farms.find((x) => x.id === fid)?.name ?? "Exploitation"}</Button>)}
+              </div>
+              <CareList cases={(db.careCases ?? []).filter((c) => c.missionId === m.id)} onOpen={setCareOpen} />
+            </div>
+          )}
+          <CareCaseModal prefill={care} onClose={() => setCare(null)} onSaved={setCareOpen} />
+          <CareCaseDetail id={careOpen} onClose={() => setCareOpen(null)} onExtend={(p) => { setCareOpen(null); setCare({ ...p, missionId: m.id }); }} />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ReportPrintButton m={m} />
+            {reportText && <CopyButton text={`${RURAL_LABEL[rtype]} ${m.code} — ${m.location} — ${formatDate(m.date)}\n\n${reportText}`} label="Copier le rapport" />}
+            {reportText && reportPhone && (
+              <a href={waLink("+225", reportPhone, `${RURAL_LABEL[rtype]} ${m.code} — ${formatDate(m.date)}\n\n${reportText}`)} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center rounded-lg border border-success-300 px-3 text-theme-xs font-medium text-success-700 hover:bg-success-50 dark:border-success-700 dark:text-success-300">
+                Envoyer à l&apos;éleveur (WhatsApp)
+              </a>
+            )}
+            <Button size="sm" disabled={m.status === "annulee" || !can("missions", "update")} onClick={() => run(saveMissionReport, { id: m.id, report, interventionsDone: done, observed, sections })}>
               Enregistrer le rapport{session.offline ? " (hors ligne)" : ""}
             </Button>
           </div>
@@ -230,15 +294,27 @@ export default function MissionDetail({ id }: { id: string }) {
 
       {tab === "billing" && (
         <ComponentCard title="Facturation de la mission" desc="Facture l'intervention et les seuls produits délivrés (jamais les transferts)">
-          {m.status !== "terminee" ? (
-            <p className="text-sm text-gray-500">Disponible une fois la mission terminée.</p>
+          {!canBill ? (
+            <p className="text-sm text-gray-500">{rtype === "urgence" ? "Disponible dès que l'urgence est en cours." : "Disponible une fois la mission terminée."}</p>
           ) : (
             <>
               <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_12rem_auto]">
                 <SelectField label="Client facturé" value={inv.clientId} onChange={(clientId) => setInv({ ...inv, clientId })} options={m.clientIds.map((c) => ({ value: c, label: clientName(db, c) }))} />
-                <NumberField label="Montant de l'intervention" suffix="F" value={inv.amount} onChange={(amount) => setInv({ ...inv, amount })} min={0} step={5000} />
-                <Button size="sm" disabled={!inv.clientId || !can("facturation", "create")} onClick={() => { const r = run(invoiceMission, { id: m.id, clientId: inv.clientId, serviceAmount: inv.amount }); if (r.ok && r.data) router.push(`/facturation/factures/${r.data}`); }}>Créer la facture</Button>
+                <NumberField label={rtype === "urgence" ? "Prise en charge (acte)" : rtype === "visite" ? "Visite / consultance" : "Montant de l'intervention"} suffix="F" value={inv.amount} onChange={(amount) => setInv({ ...inv, amount })} min={0} step={5000} />
+                <Button size="sm" disabled={!inv.clientId || !can("facturation", "create")} onClick={() => { const r = run(invoiceMission, { id: m.id, clientId: inv.clientId, serviceAmount: inv.amount, extras }); if (r.ok && r.data) router.push(`/facturation/factures/${r.data}`); }}>Créer la facture</Button>
               </div>
+              {extras.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-400">Frais liés à la prestation</p>
+                  {extras.map((x, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_10rem] items-end gap-2">
+                      <input value={x.label} onChange={(e) => setExtras(extras.map((y, j) => (j === i ? { ...y, label: e.target.value } : y)))} aria-label="Libellé" className="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90" />
+                      <NumberField label="Montant" suffix="F" value={x.amount} onChange={(amount) => setExtras(extras.map((y, j) => (j === i ? { ...y, amount } : y)))} min={0} step={5000} />
+                    </div>
+                  ))}
+                  <p className="text-theme-xs text-gray-500">Les produits délivrés pendant l&apos;intervention s&apos;ajoutent automatiquement après le rapprochement.</p>
+                </div>
+              )}
               {db.invoices.filter((i) => i.lines.some((l) => l.source?.kind === "mission" && l.source.id === m.id)).map((i) => (
                 <Link key={i.id} href={`/facturation/factures/${i.id}`} className="block text-sm text-brand-600 hover:underline">{i.code} — {labelOf("invoice", i.status)}</Link>
               ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { uid } from "@/lib/format";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
@@ -28,6 +29,15 @@ export default function NewConsultation() {
         appointmentId: appt?.id,
         vetId: appt && db.users.find((u) => u.id === appt.practitionerId && ["dg", "vet"].includes(u.roleId)) ? appt.practitionerId : s.vetId,
         financialStatus: appt?.queueStatus === "regle" || appt?.queueStatus === "en_consultation" ? "regle_avance" : "non_regle",
+        ...(appt?.home
+          ? {
+              reason: `${appt.home.reason === "urgence" ? "Urgence à domicile" : "Consultation à domicile"} — ${appt.reason}`,
+              acts: [
+                { id: uid("act"), label: appt.home.reason === "urgence" ? "Consultation d'urgence à domicile" : "Consultation à domicile", qty: 1, unitPrice: appt.home.reason === "urgence" ? 25000 : 20000 },
+                ...(appt.home.travelFee > 0 ? [{ id: uid("act"), label: `Frais de déplacement — ${appt.home.address}`, qty: 1, unitPrice: appt.home.travelFee }] : []),
+              ],
+            }
+          : {}),
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

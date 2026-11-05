@@ -16,28 +16,61 @@ import { userName } from "@/lib/calc";
 import { formatDate, isoDay } from "@/lib/format";
 import { optionsOf } from "@/lib/labels";
 import { cn } from "@/utils";
-import { useMemo, useState } from "react";
+import Tabs from "@/components/ui/tabs/Tabs";
+import { useQueryParam } from "@/hooks/useQueryFlag";
+import { RURAL_LABEL, ruralTypeOf } from "@/lib/rural";
+import type { RuralType } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
 import MissionFormModal from "./MissionFormModal";
 
 export default function MissionsList() {
   const { db, today } = useDemo();
   const router = useRouter();
   const create = useModal();
+  const nouveau = useQueryParam("nouveau");
+  const filtre = useQueryParam("filtre");
+  const [preset, setPreset] = useState<RuralType>("visite");
+  const [type, setType] = useState<"all" | RuralType>(filtre === "urgence" || filtre === "visite" || filtre === "mission" ? filtre : "all");
+  useEffect(() => {
+    if (nouveau) {
+      setPreset(nouveau === "urgence" ? "urgence" : nouveau === "visite" ? "visite" : "mission");
+      create.openModal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nouveau]);
+  const open = (k: RuralType) => {
+    setPreset(k);
+    create.openModal();
+  };
   const [f, setF] = useState<Record<string, string>>({});
   const [month, setMonth] = useState(() => new Date());
-  const rows = useMemo(() => db.missions.filter((m) => (!f.status || m.status === f.status) && (!f.category || m.category === f.category) && (!f.service || m.serviceType === f.service)), [db, f]);
+  const counts = useMemo(() => ({ visite: db.missions.filter((m) => ruralTypeOf(m) === "visite").length, urgence: db.missions.filter((m) => ruralTypeOf(m) === "urgence" && m.status !== "terminee" && m.status !== "annulee").length, mission: db.missions.filter((m) => ruralTypeOf(m) === "mission").length }), [db]);
+  const rows = useMemo(() => db.missions.filter((m) => (type === "all" || ruralTypeOf(m) === type) && (!f.status || m.status === f.status) && (!f.category || m.category === f.category) && (!f.service || m.serviceType === f.service)), [db, f, type]);
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const offset = (first.getDay() + 6) % 7;
   const cells = Array.from({ length: 42 }, (_, i) => new Date(month.getFullYear(), month.getMonth(), 1 - offset + i));
   return (
     <div className="space-y-4">
       <PageBreadcrumb
-        pageTitle="Missions terrain"
+        pageTitle="Visites, urgences et missions"
+        subtitle="Rural · animaux de rente"
         actions={
           <Can module="missions" action="create">
-            <Button size="sm" startIcon={<PlusIcon />} onClick={create.openModal}>Nouvelle mission</Button>
+            <Button size="sm" startIcon={<PlusIcon />} onClick={() => open("visite")}>Visite de ferme</Button>
+            <Button size="sm" variant="danger" onClick={() => open("urgence")}>Urgence</Button>
+            <Button size="sm" variant="outline" onClick={() => open("mission")}>Mission</Button>
           </Can>
         }
+      />
+      <Tabs
+        active={type}
+        onChange={(k) => setType(k as "all" | RuralType)}
+        tabs={[
+          { key: "all", label: "Tout" },
+          { key: "visite", label: "Visites de ferme", count: counts.visite },
+          { key: "urgence", label: "Urgences en cours", count: counts.urgence },
+          { key: "mission", label: "Missions", count: counts.mission },
+        ]}
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
         <Panel className="xl:col-span-2">
@@ -57,7 +90,7 @@ export default function MissionsList() {
             initialSort={{ key: "d", dir: "desc" }}
             columns={[
               { key: "c", header: "Mission", primary: true, render: (m) => <span className="flex flex-col"><span className="font-medium">{m.code}</span><span className="text-theme-xs text-gray-500">{m.objective}</span></span> },
-              { key: "cat", header: "Catégorie", render: (m) => <StatusBadge kind="missionCategory" value={m.category} />, hideOnMobile: true },
+              { key: "cat", header: "Type", render: (m) => <span className={cn("rounded-full px-2 py-0.5 text-theme-xs font-medium", ruralTypeOf(m) === "urgence" ? "bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-300" : ruralTypeOf(m) === "visite" ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300" : "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300")}>{RURAL_LABEL[ruralTypeOf(m)]}</span>, hideOnMobile: true },
               { key: "d", header: "Date", sortValue: (m) => m.date, render: (m) => formatDate(m.date) },
               { key: "l", header: "Lieu", render: (m) => m.location, hideOnMobile: true },
               { key: "r", header: "Responsable", render: (m) => userName(db, m.leaderId) },
@@ -93,7 +126,7 @@ export default function MissionsList() {
           </div>
         </ComponentCard>
       </div>
-      <MissionFormModal isOpen={create.isOpen} onClose={create.closeModal} onCreated={(id) => router.push(`/missions/${id}`)} />
+      <MissionFormModal isOpen={create.isOpen} onClose={create.closeModal} preset={preset} onCreated={(id) => router.push(`/missions/${id}`)} />
     </div>
   );
 }

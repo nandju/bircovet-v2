@@ -1,5 +1,6 @@
 "use client";
 
+import SpeciesIcon from "@/components/common/SpeciesIcon";
 import AvatarInitials from "@/components/common/AvatarInitials";
 import Can from "@/components/common/Can";
 import ComponentCard from "@/components/common/ComponentCard";
@@ -9,6 +10,8 @@ import InfoGrid from "@/components/common/InfoGrid";
 import NotesPanel from "@/components/common/NotesPanel";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import StatusBadge from "@/components/common/StatusBadge";
+import ClientFollowUpCard from "@/components/crm/followup/ClientFollowUpCard";
+import ClientProfileCard from "./ClientProfileCard";
 import LinkedDocuments from "@/components/documents/LinkedDocuments";
 import DataTable from "@/components/tables/DataTable";
 import Button from "@/components/ui/button/Button";
@@ -66,7 +69,14 @@ export default function ClientDetail({ id }: { id: string }) {
         }
       />
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:p-5 dark:border-gray-800 dark:bg-white/3">
+      {c.incomplete && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-theme-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-300">
+          <span><strong>Fiche à compléter.</strong> Client créé par enregistrement rapide : ajoutez son adresse, sa commune et ses autres informations.</span>
+          <Button size="xs" variant="soft" onClick={() => router.push(`/clients/${c.id}/modifier`)}>Compléter la fiche</Button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-4 sm:flex-row sm:items-center sm:p-5 dark:border-gray-800 dark:bg-white/3">
         <AvatarInitials name={c.name} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -116,13 +126,14 @@ export default function ClientDetail({ id }: { id: string }) {
           { key: "rdv", label: "Rendez-vous", count: appts.length },
           { key: "finance", label: "Factures et paiements", count: invoices.length },
           { key: "notes", label: "Notes et suivis", count: c.notes.length },
-          { key: "docs", label: "Documents" },
+          { key: "docs", label: "Documents et liens" },
           { key: "history", label: "Historique" },
         ]}
       />
 
       {tab === "general" && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+          <ClientProfileCard client={c} />
           <ComponentCard title="Coordonnées">
             <InfoGrid
               items={[
@@ -152,6 +163,7 @@ export default function ClientDetail({ id }: { id: string }) {
               ]}
             />
           </ComponentCard>
+          <ClientFollowUpCard clientId={c.id} />
         </div>
       )}
 
@@ -163,7 +175,7 @@ export default function ClientDetail({ id }: { id: string }) {
             onRowClick={(p) => router.push(`/patients/${p.id}`)}
             columns={[
               { key: "n", header: "Nom", primary: true, render: (p) => <span className="font-medium">{p.name} {p.ownerId !== c.id && <span className="text-theme-xs text-gray-500">(cédé)</span>}</span> },
-              { key: "s", header: "Espèce / race", render: (p) => `${p.species} — ${p.breed}` },
+              { key: "s", header: "Espèce / race", render: (p) => <span className="inline-flex items-center gap-1.5"><SpeciesIcon species={p.species} />{p.species} — {p.breed}</span> },
               { key: "a", header: "Âge", render: (p) => ageFrom(p.birthDate) },
               { key: "v", header: "Statut", render: (p) => <StatusBadge kind="vital" value={p.vitalStatus} /> },
             ]}

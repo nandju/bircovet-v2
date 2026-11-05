@@ -10,11 +10,36 @@
 import { useToast } from "@/context/ToastContext";
 import { LogoMark } from "@/icons";
 import { isoLocal } from "@/lib/format";
-import { can as canRole, type ModuleId, type PermAction } from "@/lib/permissions";
+import { applyRoleSettings, can as canRole, type ModuleId, type PermAction } from "@/lib/permissions";
+import { applyCategoryList, applyLabelOverrides } from "@/lib/labels";
+import { migrateToV6 } from "@/lib/followup";
+import { migrateToV8 } from "@/lib/pharma/state";
+import { migrateToV9 } from "@/lib/clientActivity";
+import { migrateToV10 } from "@/lib/announcements";
+import { migrateToV11 } from "@/lib/migrateV11";
+import { migrateToV12 } from "@/lib/migrateV12";
+import { migrateToV13 } from "@/lib/migrateV13";
+import { migrateToV14 } from "@/lib/migrateV14";
+import { migrateToV15 } from "@/lib/migrateV15";
+import { migrateToV16 } from "@/lib/migrateV16";
+import { migrateToV17 } from "@/lib/migrateV17";
+import { migrateToV18 } from "@/lib/migrateV18";
+import { migrateToV19 } from "@/lib/migrateV19";
+import { migrateToV20 } from "@/lib/migrateV20";
+import { migrateToV21 } from "@/lib/migrateV21";
+import { migrateToV22 } from "@/lib/migrateV22";
+import { migrateToV23 } from "@/lib/migrateV23";
+import { visibleTo } from "@/lib/notifications";
+import { migrateToV7 } from "@/lib/rural";
 import { SCHEMA_VERSION, createSeed } from "@/lib/seed";
 import { refreshDerived, type Service } from "@/lib/services/core";
 import type { ActionCtx, DemoDB, Establishment, ServiceResult, SessionState, User } from "@/lib/types";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+
+/** Comptes de connexion : équipe de la clinique + compte éditeur de la plateforme. */
+function accountsOf(db: DemoDB) {
+  return db.platform ? [...db.users, db.platform.editor] : db.users;
+}
 
 export const DB_KEY = "cliva.demo.db";
 export const SESSION_KEY = "cliva.demo.session";
@@ -53,7 +78,31 @@ export const useDemo = () => {
 function isValidDb(x: unknown): x is DemoDB {
   if (!x || typeof x !== "object") return false;
   const d = x as Partial<DemoDB>;
-  return d.schemaVersion === SCHEMA_VERSION && Array.isArray(d.clients) && Array.isArray(d.users) && Array.isArray(d.invoices) && !!d.settings && !!d.counters;
+  return (d.schemaVersion === SCHEMA_VERSION || d.schemaVersion === 5 || d.schemaVersion === 6 || d.schemaVersion === 7 || d.schemaVersion === 8 || d.schemaVersion === 9 || d.schemaVersion === 10 || d.schemaVersion === 11 || d.schemaVersion === 12 || d.schemaVersion === 13 || d.schemaVersion === 14 || d.schemaVersion === 15 || d.schemaVersion === 16 || d.schemaVersion === 17 || d.schemaVersion === 18 || d.schemaVersion === 19 || d.schemaVersion === 20 || d.schemaVersion === 21 || d.schemaVersion === 22) && Array.isArray(d.clients) && Array.isArray(d.users) && Array.isArray(d.invoices) && !!d.settings && !!d.counters;
+}
+
+/** Met à niveau une base enregistrée par une version précédente sans perdre les données saisies. */
+function upgrade(d: DemoDB): DemoDB {
+  let x = d;
+  if (x.schemaVersion === 5) x = migrateToV6(x, nowIso().slice(0, 10));
+  if (x.schemaVersion === 6) x = migrateToV7(x, nowIso());
+  if (x.schemaVersion === 7) x = migrateToV8(x);
+  if (x.schemaVersion === 8) x = migrateToV9(x, nowIso().slice(0, 10));
+  if (x.schemaVersion === 9) x = migrateToV10(x, nowIso().slice(0, 10));
+  if (x.schemaVersion === 10) x = migrateToV11(x, isoLocal());
+  if (x.schemaVersion === 11) x = migrateToV12(x, isoLocal());
+  if (x.schemaVersion === 12) x = migrateToV13(x, isoLocal());
+  if (x.schemaVersion === 13) x = migrateToV14(x, isoLocal());
+  if (x.schemaVersion === 14) x = migrateToV15(x, isoLocal());
+  if (x.schemaVersion === 15) x = migrateToV16(x, isoLocal());
+  if (x.schemaVersion === 16) x = migrateToV17(x, isoLocal());
+  if (x.schemaVersion === 17) x = migrateToV18(x, isoLocal());
+  if (x.schemaVersion === 18) x = migrateToV19(x, isoLocal());
+  if (x.schemaVersion === 19) x = migrateToV20(x, isoLocal());
+  if (x.schemaVersion === 20) x = migrateToV21(x, isoLocal());
+  if (x.schemaVersion === 21) x = migrateToV22(x);
+  if (x.schemaVersion === 22) x = migrateToV23(x);
+  return x;
 }
 
 function loadDb(): { db: DemoDB; restored: boolean } {
@@ -61,7 +110,7 @@ function loadDb(): { db: DemoDB; restored: boolean } {
     const raw = localStorage.getItem(DB_KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      if (isValidDb(parsed)) return { db: parsed, restored: false };
+      if (isValidDb(parsed)) return { db: upgrade(parsed), restored: false };
     }
     return { db: createSeed(new Date()), restored: !!raw };
   } catch {
@@ -83,6 +132,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   const [db, setDb] = useState<DemoDB | null>(null);
   const [session, setSession] = useState<SessionState>(EMPTY_SESSION);
   const dbRef = useRef<DemoDB | null>(null);
+  const quotaWarnedRef = useRef(false);
 
   const persist = useCallback(
     (next: DemoDB) => {
@@ -90,8 +140,12 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       setDb(next);
       try {
         localStorage.setItem(DB_KEY, JSON.stringify(next));
+        quotaWarnedRef.current = false;
       } catch {
-        toast.show("error", "Impossible d'enregistrer localement (stockage du navigateur plein ou indisponible).");
+        if (!quotaWarnedRef.current) {
+          quotaWarnedRef.current = true;
+          toast.show("error", "Stockage local saturé : les dernières modifications restent affichées mais ne seront pas conservées au rechargement. Supprimez des photos/pièces jointes volumineuses ou réinitialisez la démo (Administration → Démo).");
+        }
       }
     },
     [toast],
@@ -117,8 +171,9 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed: unknown = JSON.parse(e.newValue);
           if (isValidDb(parsed)) {
-            dbRef.current = parsed;
-            setDb(parsed);
+            const up = upgrade(parsed);
+            dbRef.current = up;
+            setDb(up);
           }
         } catch {
           /* ignoré */
@@ -131,7 +186,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const user = useMemo(() => (db && session.userId ? (db.users.find((u) => u.id === session.userId && u.active) ?? null) : null), [db, session.userId]);
+  const user = useMemo(() => (db && session.userId ? (accountsOf(db).find((u) => u.id === session.userId && u.active) ?? null) : null), [db, session.userId]);
   const establishment = useMemo(
     () => (db ? (db.establishments.find((e) => e.id === (session.establishmentId ?? user?.establishmentId)) ?? db.establishments[0]) : null),
     [db, session.establishmentId, user],
@@ -159,7 +214,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     (email: string, password: string) => {
-      const u = dbRef.current?.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
+      const u = dbRef.current ? accountsOf(dbRef.current).find((x) => x.email.toLowerCase() === email.trim().toLowerCase()) : undefined;
       if (!u || u.demoPassword !== password) return { ok: false, error: "Identifiant ou mot de passe incorrect." };
       if (!u.active) return { ok: false, error: "Ce compte est désactivé." };
       saveSession({ userId: u.id, establishmentId: u.establishmentId, offline: false });
@@ -168,6 +223,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     [saveSession],
   );
 
+  // Réglages du DG (droits, libellés) appliqués avant tout rendu.
+  applyRoleSettings(db?.settings.permissions, db?.settings.roleLabels);
+  applyLabelOverrides({ category: db?.settings.categoryLabels ?? {} });
+  applyCategoryList(db?.settings.productCategories);
   const value = useMemo<DemoStore | null>(() => {
     if (!db) return null;
     return {
@@ -181,7 +240,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       login,
       logout: () => saveSession(EMPTY_SESSION),
       switchUser: (userId) => {
-        const u = db.users.find((x) => x.id === userId && x.active);
+        const u = accountsOf(db).find((x) => x.id === userId && x.active);
         if (u) {
           saveSession({ ...session, userId: u.id, establishmentId: u.establishmentId });
           toast.show("info", `Profil de démonstration actif : ${u.name}.`);
@@ -197,7 +256,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         persist(fresh);
         toast.show("success", "Environnement de démonstration réinitialisé : données initiales restaurées.");
       },
-      markNotificationsRead: () => persist({ ...db, notifications: db.notifications.map((n) => ({ ...n, read: true })) }),
+      markNotificationsRead: () => persist({ ...db, notifications: db.notifications.map((n) => (user && visibleTo(n, user) && !n.readBy?.includes(user.id) ? { ...n, readBy: [...(n.readBy ?? []), user.id] } : n)) }),
     };
   }, [db, session, user, establishment, run, login, saveSession, persist, toast]);
 

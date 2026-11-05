@@ -6,6 +6,7 @@ export default function DemoNotice({ children, tone = "info", className }: { chi
   return (
     <div
       className={cn(
+        "print:hidden",
         "flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm",
         tone === "info"
           ? "border-tertiary-200 bg-tertiary-25 text-tertiary-800 dark:border-tertiary-800 dark:bg-tertiary-500/10 dark:text-tertiary-200"

@@ -144,7 +144,7 @@ const INTENTS: Intent[] = [
   {
     response: "Voici les factures pro forma — documents commerciaux non engageants.",
     keywords: ["pro forma", "proforma", "facture pro forma"],
-    actions: [{ label: "Factures pro forma", path: "/facturation/proforma", module: "facturation" }],
+    actions: [{ label: "Devis / pro forma", path: "/facturation/devis", module: "facturation" }],
   },
   {
     response: "Voici le suivi des produits en dépôt-vente — distincts des ventes encaissées.",

@@ -42,8 +42,8 @@ export function AreaChart({ labels, series, height = 280, currency }: SeriesChar
   const options: ApexOptions = {
     ...base,
     chart: { ...base.chart, type: "area" },
-    stroke: { curve: "smooth", width: 2 },
-    fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0 } },
+    fill: { type: "gradient", gradient: { opacityFrom: 0.45, opacityTo: 0.02 } },
+    stroke: { curve: "smooth", width: 2.5 },
     xaxis: { categories: labels, axisBorder: { show: false }, axisTicks: { show: false } },
   };
   return <ReactApexChart options={options} series={series} type="area" height={height} />;
@@ -54,7 +54,8 @@ export function BarChart({ labels, series, height = 280, currency, stacked, hori
   const options: ApexOptions = {
     ...base,
     chart: { ...base.chart, type: "bar", stacked },
-    plotOptions: { bar: { horizontal, columnWidth: "45%", borderRadius: 4, borderRadiusApplication: "end" } },
+    plotOptions: { bar: { horizontal, columnWidth: "42%", borderRadius: 8, borderRadiusApplication: stacked ? "end" : "around" } },
+    fill: { type: "gradient", gradient: { shade: "light", type: horizontal ? "horizontal" : "vertical", shadeIntensity: 0.25, opacityFrom: 1, opacityTo: 0.75, stops: [0, 100] } },
     xaxis: {
       categories: labels,
       axisBorder: { show: false },

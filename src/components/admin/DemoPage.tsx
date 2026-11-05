@@ -72,7 +72,7 @@ export default function DemoPage() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {db.users.map((u) => (
-              <div key={u.id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/3">
+              <div key={u.id} className="rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-4 dark:border-gray-800 dark:bg-white/3">
                 <p className="text-theme-xs font-medium text-brand-600">{ROLE_LABELS[u.roleId]}</p>
                 <p className="mt-1 font-semibold text-gray-800 dark:text-white/90">{u.name}</p>
                 <p className="text-sm text-gray-500">{u.email}</p>

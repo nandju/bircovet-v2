@@ -12,7 +12,7 @@ interface ComponentCardProps {
 
 const ComponentCard: React.FC<ComponentCardProps> = ({ title, children, className = "", desc = "", actions, bodyClassName }) => {
   return (
-    <div className={cn("min-w-0 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3", className)}>
+    <div className={cn("min-w-0 rounded-3xl border border-gray-200/70 bg-white shadow-cliva dark:border-gray-800 dark:bg-white/3", className)}>
       {/* Card Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4 sm:px-5">
         <div className="min-w-0">

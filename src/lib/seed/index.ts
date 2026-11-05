@@ -2,6 +2,24 @@
  * Génération du jeu de données initial (100 % fictif) relatif à la date du jour,
  * afin que l'agenda, les échéances et les péremptions restent cohérents.
  */
+import { migrateToV6 } from "../followup";
+import { migrateToV7 } from "../rural";
+import { migrateToV8 } from "../pharma/state";
+import { migrateToV9 } from "../clientActivity";
+import { migrateToV10 } from "../announcements";
+import { migrateToV11 } from "../migrateV11";
+import { migrateToV12 } from "../migrateV12";
+import { migrateToV13 } from "../migrateV13";
+import { migrateToV14 } from "../migrateV14";
+import { migrateToV15 } from "../migrateV15";
+import { migrateToV16 } from "../migrateV16";
+import { migrateToV17 } from "../migrateV17";
+import { migrateToV18 } from "../migrateV18";
+import { migrateToV19 } from "../migrateV19";
+import { migrateToV20 } from "../migrateV20";
+import { migrateToV21 } from "../migrateV21";
+import { migrateToV22 } from "../migrateV22";
+import { migrateToV23 } from "../migrateV23";
 import { docTotal } from "../calc";
 import { addDays, isoDay, isoLocal } from "../format";
 import type {
@@ -33,7 +51,7 @@ import type {
 } from "../types";
 import { ACCOUNTS, ESTABLISHMENTS, PRODUCTS, SETTINGS, SUPPLIERS, TEMPLATES, TRAININGS, USERS } from "./base";
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 23;
 
 function rng(seed: number) {
   let a = seed;
@@ -976,7 +994,7 @@ export function createSeed(now: Date = new Date()): DemoDB {
     { id: "ntf-5", date: DT(0, 7), title: "Réception BLI proposée", body: "REC-0003 importée — à contrôler avant entrée en stock.", level: "info" as const, read: false, link: "/achats/receptions" },
   ];
 
-  return {
+  const base = {
     schemaVersion: SCHEMA_VERSION,
     seededAt: isoLocal(now),
     users: USERS.map((x) => ({ ...x })),
@@ -1146,5 +1164,7 @@ export function createSeed(now: Date = new Date()): DemoDB {
       supplier: SUPPLIERS.length,
       lot: lotN,
     },
-  };
+  } as unknown as DemoDB;
+  // Suivi client : parcours de relance et prospects construits à partir des données ci-dessus.
+  return migrateToV23(migrateToV22(migrateToV21(migrateToV20(migrateToV19(migrateToV18(migrateToV17(migrateToV16(migrateToV15(migrateToV14(migrateToV13(migrateToV12(migrateToV11(migrateToV10(migrateToV9(migrateToV8(migrateToV7(migrateToV6(base, today), isoLocal(now))), today), today), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now)), isoLocal(now))));
 }

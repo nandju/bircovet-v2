@@ -15,11 +15,26 @@ import { PrinterIcon } from "@/icons";
 import { clientName, docTotal, invoiceBalance, invoiceCredited, invoicePaid, isActiveInvoice, maxDiscount, userName } from "@/lib/calc";
 import { formatDate, formatDateTime, formatXOF } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
-import { cancelInvoice, convertProforma, setFneStatus, submitInvoice, validateInvoice } from "@/lib/services/invoicesService";
+import { cancelInvoice, convertProforma, setFneNumber, setFneStatus, submitInvoice, validateInvoice } from "@/lib/services/invoicesService";
 import { printPage } from "@/utils/export";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BillingDocument from "./BillingDocument";
 import { CreditNoteModal, DocumentEditorModal } from "./BillingModals";
+
+function FneNumberField({ id, value }: { id: string; value: string }) {
+  const { run } = useDemo();
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  return (
+    <div className="mt-3">
+      <label htmlFor="fne-number" className="mb-1 block text-theme-xs text-gray-500">Numéro FNE (plateforme DGI)</label>
+      <div className="flex gap-2">
+        <input id="fne-number" value={v} onChange={(e) => setV(e.target.value)} placeholder="Ex. : FNE-2026-000123" className="h-9 min-w-0 flex-1 rounded-lg border border-gray-300 bg-transparent px-2 text-sm uppercase dark:border-gray-700 dark:bg-gray-900" />
+        <Button size="xs" onClick={() => run(setFneNumber, { id, number: v })} disabled={v.trim().toUpperCase() === value}>Enregistrer</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function InvoiceDetail({ id }: { id: string }) {
   const { db, run, can, user } = useDemo();
@@ -47,11 +62,11 @@ export default function InvoiceDetail({ id }: { id: string }) {
       <PageBreadcrumb
         pageTitle={`${isAvoir ? "Avoir" : isProforma ? "Pro forma" : "Facture"} ${inv.code}`}
         subtitle={`${clientName(db, inv.clientId)} · ${isProforma ? "Document non engageant" : labelOf("invoice", inv.status)}`}
-        trail={[{ label: isAvoir ? "Avoirs" : isProforma ? "Pro forma" : "Factures", href: isAvoir ? "/facturation/avoirs" : isProforma ? "/facturation/proforma" : "/facturation" }]}
+        trail={[{ label: isAvoir ? "Avoirs" : isProforma ? "Devis / pro forma" : "Factures", href: isAvoir ? "/facturation/avoirs" : isProforma ? "/facturation/devis" : "/facturation" }]}
         actions={
           <>
             <Button size="sm" variant="outline" startIcon={<PrinterIcon />} onClick={printPage}>
-              Imprimer / PDF
+              {isProforma ? "Télécharger en PDF" : "Imprimer / PDF"}
             </Button>
             {isProforma && !converted && canValidate && (
               <Button size="sm" onClick={() => { const r = run(convertProforma, { id: inv.id }); if (r.ok && r.data) router.push(`/facturation/factures/${r.data}`); }}>
@@ -105,6 +120,7 @@ export default function InvoiceDetail({ id }: { id: string }) {
             clientName={clientName(db, inv.clientId)}
             payerName={inv.payerName}
             lines={inv.lines}
+            meta={inv.fneNumber ? [{ label: "N° FNE", value: inv.fneNumber }] : []}
             notes={[inv.notes, isAvoir && original ? `Avoir lié à la facture ${original.code}. Motif : ${inv.correctionReason}` : ""].filter(Boolean).join(" — ")}
             footerRows={
               isAvoir || isProforma
@@ -126,7 +142,7 @@ export default function InvoiceDetail({ id }: { id: string }) {
                 { label: "Auteur", value: userName(db, inv.authorId) },
                 { label: "Validation", value: inv.validatedById ? `${userName(db, inv.validatedById)} — ${formatDateTime(inv.validatedAt)}` : "—" },
                 { label: "Intégration fiscale", value: inv.fiscalStatus === "a_transmettre_backend" ? "À transmettre (après intégration backend)" : "Non concerné (démo)", wide: true },
-                ...(inv.kind === "facture" ? [{ label: "Distinction FNE", value: <StatusBadge kind="fne" value={inv.fneStatus ?? "non_renseigne"} /> }] : []),
+                ...(inv.kind === "facture" ? [{ label: "Distinction FNE", value: <StatusBadge kind="fne" value={inv.fneStatus ?? "non_renseigne"} /> }, { label: "N° FNE", value: inv.fneNumber ?? "—" }] : []),
                 ...(converted ? [{ label: "Convertie en", value: converted.code }] : []),
               ]}
             />
@@ -146,6 +162,7 @@ export default function InvoiceDetail({ id }: { id: string }) {
                   <option value="fne">FNE (informatif)</option>
                   <option value="hors_fne">Hors FNE</option>
                 </select>
+                <FneNumberField id={inv.id} value={inv.fneNumber ?? ""} />
               </div>
             )}
           </ComponentCard>

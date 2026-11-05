@@ -34,7 +34,7 @@ export default function QueueBoard() {
   const [pay, setPay] = useState<Appointment | null>(null);
   const [cancel, setCancel] = useState<Appointment | null>(null);
   const [exception, setException] = useState<Appointment | null>(null);
-  const list = db.appointments.filter((a) => a.start.startsWith(today) && a.establishmentId === establishment?.id).sort((a, b) => a.start.localeCompare(b.start));
+  const list = db.appointments.filter((a) => a.start.startsWith(today) && a.establishmentId === establishment?.id && a.status !== "demande").sort((a, b) => a.start.localeCompare(b.start));
   const editable = can("agenda", "update");
 
   const act = (a: Appointment, s: QueueStatus) => {

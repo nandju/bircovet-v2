@@ -1,0 +1,10 @@
+import RevenuePage from "@/components/revenue/RevenuePage";
+import { initPage, type LocaleParams } from "@/i18n/page";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Recettes par famille" };
+
+export default async function Page({ params }: LocaleParams) {
+  await initPage(params);
+  return <RevenuePage inFinance />;
+}

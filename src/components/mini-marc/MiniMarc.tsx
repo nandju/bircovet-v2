@@ -129,12 +129,12 @@ export default function MiniMarc() {
     <>
       {/* Fenêtre de discussion */}
       <div
-        className={`fixed bottom-24 end-3 z-999 flex w-[calc(100vw-1.5rem)] max-w-sm origin-bottom-right flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xl transition-all duration-200 sm:end-5 dark:border-gray-700 dark:bg-gray-900 print:hidden ${
+        className={`fixed bottom-24 end-3 z-99999 flex w-[calc(100vw-1.5rem)] max-w-sm origin-bottom-right flex-col overflow-hidden rounded-3xl border border-gray-200/70 bg-white shadow-cliva shadow-theme-xl transition-all duration-200 sm:end-5 dark:border-gray-700 dark:bg-gray-900 print:hidden ${
           open ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
         }`}
         role="dialog"
         aria-label="Mini Marc — assistant"
-        style={{ height: "min(560px, calc(100vh - 8rem))" }}
+        style={{ height: "min(560px, calc(100dvh - 7.5rem))", maxHeight: "calc(100dvh - 7.5rem)" }}
       >
         <div className="flex items-center gap-2.5 border-b border-gray-200 bg-brand-500 px-4 py-3 dark:border-gray-700">
           <span className="flex size-9 items-center justify-center rounded-full bg-white/15 text-white">
@@ -266,7 +266,7 @@ export default function MiniMarc() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 end-5 z-999 flex size-13 items-center justify-center rounded-full bg-brand-500 text-white shadow-theme-xl transition hover:bg-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/30 sm:bottom-6 sm:end-6 print:hidden"
+        className="fixed bottom-5 end-5 z-99999 flex size-13 items-center justify-center rounded-full bg-brand-500 text-white shadow-theme-xl transition hover:bg-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/30 sm:bottom-6 sm:end-6 print:hidden"
         aria-label={open ? "Réduire Mini Marc" : "Ouvrir Mini Marc, l'assistant"}
         aria-expanded={open}
       >

@@ -20,7 +20,7 @@ import { useMemo, useState } from "react";
 import { ProductFormModal } from "./StockModals";
 
 export default function Catalog() {
-  const { db, today } = useDemo();
+  const { db, today, user } = useDemo();
   const opts = useOptions();
   const router = useRouter();
   const create = useModal();
@@ -40,6 +40,7 @@ export default function Catalog() {
             <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => exportCsv("cliva-catalogue-demo", ["Code", "Nom", "Catégorie", "Unité achat", "Unité stock", "Unité vente", "Conversion", "Seuil", "Prix achat", "Prix vente", "Fournisseur", "Stock total", "Statut"], rows.map((p) => [p.code, p.name, labelOf("category", p.category), p.purchaseUnit, p.stockUnit, p.saleUnit, p.conversion, p.alertThreshold, p.purchasePrice, p.salePrice, supplierName(db, p.supplierId), productStock(db, p.id, undefined, today), labelOf("product", p.status)]))}>
               Export CSV
             </Button>
+            {user?.roleId === "dg" && <Button size="sm" variant="outline" onClick={() => router.push("/administration/categories")}>Gérer les catégories</Button>}
             <Can module="stock" action="create">
               <Button size="sm" startIcon={<PlusIcon />} onClick={create.openModal}>
                 Nouvel article
@@ -68,7 +69,7 @@ export default function Catalog() {
           initialSort={{ key: "n", dir: "asc" }}
           columns={[
             { key: "n", header: "Article", primary: true, sortValue: (p) => p.name, render: (p) => <span className="flex flex-col"><span className="font-medium">{p.name}</span><span className="text-theme-xs text-gray-500">{p.code} · {p.form}</span></span> },
-            { key: "c", header: "Catégorie", render: (p) => <StatusBadge kind="category" value={p.category} /> },
+            { key: "c", header: "Catégorie", render: (p) => <span className="flex flex-col items-start gap-0.5"><StatusBadge kind="category" value={p.category} />{p.subCategory && <span className="text-[11px] text-gray-500">{p.subCategory}</span>}</span> },
             { key: "u", header: "Unités (achat → stock)", hideOnMobile: true, render: (p) => `${p.purchaseUnit} → ${p.conversion} ${p.stockUnit}` },
             { key: "pa", header: "Prix achat", align: "end", render: (p) => formatXOF(p.purchasePrice) },
             { key: "pv", header: "Prix vente", align: "end", render: (p) => (p.salePrice ? formatXOF(p.salePrice) : "Non vendu") },

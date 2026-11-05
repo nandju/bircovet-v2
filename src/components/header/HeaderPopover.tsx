@@ -23,7 +23,7 @@ export default function HeaderPopover({ trigger, children, className, align = "e
       {open && (
         <div
           className={cn(
-            "fixed inset-x-3 top-[4.5rem] z-99999 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg sm:absolute sm:inset-x-auto sm:top-full sm:mt-2 dark:border-gray-800 dark:bg-gray-dark",
+            "fixed inset-x-3 top-[4.5rem] z-99999 rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-2 shadow-theme-lg sm:absolute sm:inset-x-auto sm:top-full sm:mt-2 dark:border-gray-800 dark:bg-gray-dark",
             align === "end" ? "sm:end-0" : "sm:start-0",
             className,
           )}

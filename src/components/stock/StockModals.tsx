@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 const EMPTY: ProductInput = { name: "", category: "medicament", description: "", purchaseUnit: "Boîte", stockUnit: "Unité", saleUnit: "Unité", conversion: 1, alertThreshold: 5, purchasePrice: 0, salePrice: 0, supplierId: "", status: "actif", form: "" };
 
 export function ProductFormModal({ isOpen, onClose, product, onCreated }: { isOpen: boolean; onClose: () => void; product?: Product; onCreated?: (id: string) => void }) {
-  const { run } = useDemo();
+  const { run, db } = useDemo();
   const opts = useOptions();
   const [v, setV] = useState<ProductInput>(EMPTY);
   useEffect(() => {
@@ -50,7 +50,8 @@ export function ProductFormModal({ isOpen, onClose, product, onCreated }: { isOp
     >
       <FormGrid cols={3}>
         <TextField label="Nom" required value={v.name} onChange={(x) => set("name", x)} className="sm:col-span-2" />
-        <SelectField label="Catégorie" value={v.category} onChange={(x) => set("category", x as ProductInput["category"])} options={optionsOf("category")} />
+        <SelectField label="Catégorie" value={v.category} onChange={(x) => setV((s) => ({ ...s, category: x as ProductInput["category"], subCategory: undefined }))} options={optionsOf("category")} />
+        {(db.settings.categoryDetails?.[v.category]?.length ?? 0) > 0 && <SelectField label="Précision" value={v.subCategory ?? ""} onChange={(x) => set("subCategory", x || undefined)} options={(db.settings.categoryDetails?.[v.category] ?? []).map((d) => ({ value: d, label: d }))} allowEmpty placeholder="—" />}
         <TextField label="Forme" value={v.form} onChange={(x) => set("form", x)} />
         <SelectField label="Fournisseur" required value={v.supplierId} onChange={(x) => set("supplierId", x)} options={opts.suppliers} />
         <SelectField label="Statut" value={v.status} onChange={(x) => set("status", x as ProductInput["status"])} options={optionsOf("product")} />

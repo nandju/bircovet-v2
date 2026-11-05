@@ -1,3 +1,5 @@
+import { billFromReception } from "./payablesService";
+import { approvedFor, poBudgetCheck } from "../budgets";
 import { uid } from "../format";
 import type { DemoDB, PurchaseOrder, PurchaseOrderLine, ReceptionLine, Supplier } from "../types";
 import { audit, fail, must, nextCode, notify, produce, requireRole, today, type Service } from "./core";
@@ -26,14 +28,14 @@ function checkPOLines(lines: PurchaseOrderLine[]) {
   if (lines.some((l) => !l.productId || !(l.qtyOrdered > 0) || l.unitPrice < 0)) fail("Ligne de commande invalide.");
 }
 
-export const createPurchaseOrder: Service<{ supplierId: string; expectedDate: string; lines: PurchaseOrderLine[]; notes: string }, string> = (db, ctx, input) =>
+export const createPurchaseOrder: Service<{ supplierId: string; expectedDate: string; lines: PurchaseOrderLine[]; notes: string; budgetLineId?: string }, string> = (db, ctx, input) =>
   produce(db, (d) => {
     requireRole(ctx, ["dg", "accueil", "assistant"], "commande d'achat");
     must(d.suppliers.find((s) => s.id === input.supplierId && s.status === "actif"), "Fournisseur actif requis.");
     checkPOLines(input.lines);
     const id = uid("po");
     const code = nextCode(d, "po", "BC");
-    d.purchaseOrders.unshift({ id, code, supplierId: input.supplierId, establishmentId: ctx.establishmentId, date: today(ctx), expectedDate: input.expectedDate, lines: input.lines.map((l) => ({ ...l, id: l.id || uid("pol") })), status: "brouillon", authorId: ctx.user.id, notes: input.notes });
+    d.purchaseOrders.unshift({ id, code, supplierId: input.supplierId, establishmentId: ctx.establishmentId, date: today(ctx), expectedDate: input.expectedDate, lines: input.lines.map((l) => ({ ...l, id: l.id || uid("pol") })), status: "brouillon", authorId: ctx.user.id, notes: input.notes, budgetLineId: input.budgetLineId || undefined });
     audit(d, ctx, { module: "Achats", action: "Création de commande", target: code });
     return { message: `Commande ${code} créée en brouillon${ctx.user.roleId === "assistant" ? " — à valider par un responsable" : ""}.`, data: id };
   });
@@ -67,6 +69,11 @@ export const setPOStatus: Service<{ id: string; status: Extract<PurchaseOrder["s
     requireRole(ctx, ["dg", "accueil"], "gestion des commandes");
     const po = must(d.purchaseOrders.find((x) => x.id === id));
     if (status === "envoyee" && po.status !== "brouillon") fail("Seul un brouillon peut être envoyé.");
+    if (status === "envoyee" && ctx.user.roleId !== "dg") {
+      // Toute commande doit tenir dans un budget validé, sinon l'aval du DG est nécessaire.
+      const chk = poBudgetCheck(d, po);
+      if (!chk.ok && !approvedFor(d, po.id)) fail(`${chk.reason} Demandez l'aval du DG avant d'envoyer la commande.`);
+    }
     if (status === "annulee" && !["brouillon", "envoyee"].includes(po.status)) fail("Commande déjà réceptionnée : annulation impossible, clôturez-la.");
     if (status === "cloturee" && !["partiellement_recue", "recue"].includes(po.status)) fail("Seule une commande réceptionnée peut être clôturée.");
     if (status !== "envoyee" && !reason?.trim()) fail("Motif requis.");
@@ -76,7 +83,7 @@ export const setPOStatus: Service<{ id: string; status: Extract<PurchaseOrder["s
   });
 
 export function receivedForLine(db: DemoDB, poLineId: string): number {
-  return db.receptions.filter((r) => r.status === "validee").flatMap((r) => r.lines).filter((l) => l.poLineId === poLineId).reduce((s, l) => s + l.qtyReceived, 0);
+  return db.receptions.filter((r) => r.status === "validee").flatMap((r) => r.lines).filter((l) => l.poLineId === poLineId && l.check?.status !== "refuse").reduce((s, l) => s + l.qtyReceived, 0);
 }
 
 /** Réception proposée : ne rend PAS le stock disponible avant validation. */
@@ -103,14 +110,31 @@ export const createReception: Service<{ poId?: string; supplierId: string; deliv
     return { message: `Réception ${code} proposée. Le stock vendable n'augmentera qu'après validation.`, data: id };
   });
 
+/** Contrôle d'une ligne reçue : conforme, écart (quantité corrigée) ou refusée (casse, péremption courte…). */
+export const checkReceptionLine: Service<{ id: string; lineId: string; status: "conforme" | "ecart" | "refuse"; qtyReceived?: number; note?: string }> = (db, ctx, input) =>
+  produce(db, (d) => {
+    const rec = must(d.receptions.find((r) => r.id === input.id));
+    if (rec.status !== "proposee") fail("Réception déjà traitée.");
+    const l = must(rec.lines.find((x) => x.id === input.lineId));
+    if (input.status !== "conforme" && !input.note?.trim()) fail("Précisez l'écart ou le motif du refus.");
+    if (input.status === "ecart") {
+      if (input.qtyReceived == null || input.qtyReceived < 0) fail("Quantité réellement reçue requise.");
+      l.qtyReceived = input.qtyReceived;
+    }
+    l.check = { status: input.status, note: input.note?.trim() || undefined, byId: ctx.user.id, at: ctx.now };
+    return { message: input.status === "conforme" ? "Ligne conforme." : input.status === "ecart" ? "Écart enregistré." : "Ligne refusée : elle n'entrera pas en stock." };
+  });
+
 export const validateReception: Service<{ id: string }> = (db, ctx, { id }) =>
   produce(db, (d) => {
     requireRole(ctx, ["dg", "accueil"], "validation de réception");
     const rec = must(d.receptions.find((r) => r.id === id));
     if (rec.status !== "proposee") fail("Réception déjà traitée.");
+    const unchecked = rec.lines.filter((l) => !l.check).length;
+    if (unchecked) fail(`Contrôlez chaque produit reçu avant validation (${unchecked} ligne(s) restante(s)).`);
     let total = 0;
     for (const l of rec.lines) {
-      if (l.qtyReceived <= 0) continue;
+      if (l.qtyReceived <= 0 || l.check?.status === "refuse") continue;
       const prod = must(d.products.find((p) => p.id === l.productId));
       const est = d.establishments.find((e) => e.id === rec.establishmentId);
       const lotId = uid("lot");
@@ -122,6 +146,8 @@ export const validateReception: Service<{ id: string }> = (db, ctx, { id }) =>
     rec.status = "validee";
     rec.validatedById = ctx.user.id;
     rec.validatedAt = ctx.now;
+    // La marchandise reçue devient une dette envers le fournisseur.
+    billFromReception(d, ctx, rec);
     if (rec.poId) {
       const po = must(d.purchaseOrders.find((p) => p.id === rec.poId));
       const complete = po.lines.every((pl) => receivedForLine(d, pl.id) >= pl.qtyOrdered);

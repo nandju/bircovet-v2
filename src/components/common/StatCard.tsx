@@ -12,6 +12,8 @@ interface StatCardProps {
   delta?: { value: number; label: string; positiveIsGood?: boolean };
   hint?: string;
   href?: string;
+  /** Carte mise en avant, en dégradé (couleur de l'univers). */
+  featured?: "brand" | "rural" | "gestion" | "agenda";
 }
 
 const TONES: Record<Tone, string> = {
@@ -23,18 +25,21 @@ const TONES: Record<Tone, string> = {
 };
 
 /** Carte KPI : icône, valeur, libellé, comparaison avec la période précédente. */
-export default function StatCard({ label, value, icon, tone = "brand", delta, hint, href }: StatCardProps) {
+const FEATURED = { brand: "cliva-grad-brand", rural: "cliva-grad-rural", gestion: "cliva-grad-gestion", agenda: "cliva-grad-agenda" } as const;
+
+export default function StatCard({ label, value, icon, tone = "brand", delta, hint, href, featured }: StatCardProps) {
   const good = delta ? (delta.positiveIsGood ?? true) === delta.value >= 0 : true;
+  const f = !!featured;
   const body = (
-    <div className="flex h-full flex-col justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-theme-sm sm:p-5 dark:border-gray-800 dark:bg-white/3">
+    <div className={cn("flex h-full flex-col justify-between gap-3 rounded-3xl p-4 transition duration-300 hover:-translate-y-0.5 sm:p-5", f ? cn("cliva-glow text-white shadow-cliva hover:shadow-theme-lg", FEATURED[featured!]) : "border border-gray-200/70 bg-white shadow-cliva hover:shadow-theme-md dark:border-gray-800 dark:bg-white/3")}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl [&>svg]:size-5", TONES[tone])}>{icon}</span>
+        <p className={cn("text-sm", f ? "text-white/80" : "text-gray-500 dark:text-gray-400")}>{label}</p>
+        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full [&>svg]:size-5", f ? "bg-white/20 text-white ring-1 ring-white/25" : TONES[tone])}>{icon}</span>
       </div>
       <div>
-        <p className="text-xl font-semibold text-gray-800 sm:text-2xl dark:text-white/90">{value}</p>
+        <p className={cn("text-xl leading-tight font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-3xl", f ? "text-white" : "text-gray-800 dark:text-white/90")}>{value}</p>
         {delta ? (
-          <p className="mt-1 flex flex-wrap items-center gap-1 text-theme-xs text-gray-500 dark:text-gray-400">
+          <p className={cn("mt-1 flex flex-wrap items-center gap-1 text-theme-xs", f ? "text-white/80" : "text-gray-500 dark:text-gray-400")}>
             <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium", good ? "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400" : "bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400")}>
               {delta.value >= 0 ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}
               {Math.abs(delta.value).toFixed(0)} %
@@ -42,7 +47,7 @@ export default function StatCard({ label, value, icon, tone = "brand", delta, hi
             {delta.label}
           </p>
         ) : (
-          hint && <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{hint}</p>
+          hint && <p className={cn("mt-1 text-theme-xs", f ? "text-white/75" : "text-gray-500 dark:text-gray-400")}>{hint}</p>
         )}
       </div>
     </div>

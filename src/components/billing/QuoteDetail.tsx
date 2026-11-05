@@ -23,9 +23,9 @@ export default function QuoteDetail({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <PageBreadcrumb
-        pageTitle={`Devis ${q.code}`}
+        pageTitle={`Devis / pro forma ${q.code}`}
         subtitle={clientName(db, q.clientId)}
-        trail={[{ label: "Devis", href: "/facturation/devis" }]}
+        trail={[{ label: "Devis / pro forma", href: "/facturation/devis" }]}
         actions={
           <>
             <StatusBadge kind="quote" value={q.status} size="md" />
@@ -66,7 +66,7 @@ export default function QuoteDetail({ id }: { id: string }) {
         }
       />
       <BillingDocument
-        title="Devis"
+        title="Devis / Facture pro forma"
         code={q.code}
         date={q.date}
         secondDate={{ label: "Valable jusqu'au", value: q.validUntil }}

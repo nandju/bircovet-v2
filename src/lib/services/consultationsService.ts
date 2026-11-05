@@ -1,3 +1,5 @@
+import { settingsOf } from "../followup";
+import { startPlanInDraft } from "./followUpService";
 import { CLINICAL_VALIDATORS, RESPONSIBLE_VET_ROLES } from "../permissions";
 import { uid } from "../format";
 import type { BillableAct, Consultation } from "../types";
@@ -71,6 +73,11 @@ export const validateConsultation: Service<{ id: string }> = (db, ctx, { id }) =
     c.validatedById = ctx.user.id;
     c.validatedAt = ctx.now;
     audit(d, ctx, { module: "Consultations", action: "Validation clinique", target: c.code, oldValue: "En attente", newValue: "Validé", decision: `Validé par ${ctx.user.name}` });
+    if (settingsOf(d).autoStart.consultation) {
+      const pat = d.patients.find((p) => p.id === c.patientId);
+      startPlanInDraft(d, ctx, { clientId: c.clientId, patientId: c.patientId, source: "consultation", sourceId: c.id, label: `Consultation ${c.code} — ${pat?.name ?? "patient"}`, motif: c.reason, startDate: c.date.slice(0, 10), ownerId: c.vetId });
+      return { message: `Consultation validée par ${ctx.user.name}. Suivi client programmé (J0 à J120).` };
+    }
     return { message: `Consultation validée par ${ctx.user.name}.` };
   });
 

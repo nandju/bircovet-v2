@@ -4,14 +4,16 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { Link } from "@/i18n/navigation";
 import { BellIcon } from "@/icons";
 import { formatDateTime } from "@/lib/format";
+import { isRead, visibleTo } from "@/lib/notifications";
 import { cn } from "@/utils";
 import HeaderPopover, { headerIconBtn } from "./HeaderPopover";
 
 const DOT: Record<string, string> = { info: "bg-tertiary-500", succes: "bg-brand-500", alerte: "bg-warning-500", critique: "bg-error-500" };
 
 export default function NotificationDropdown() {
-  const { db, markNotificationsRead } = useDemo();
-  const unread = db.notifications.filter((n) => !n.read).length;
+  const { db, user, markNotificationsRead } = useDemo();
+  const mine = db.notifications.filter((n) => visibleTo(n, user));
+  const unread = mine.filter((n) => !isRead(n, user?.id)).length;
   return (
     <HeaderPopover
       className="sm:w-90"
@@ -35,13 +37,13 @@ export default function NotificationDropdown() {
             )}
           </div>
           <ul className="custom-scrollbar flex-1 overflow-y-auto py-1">
-            {db.notifications.length === 0 && <li className="px-3 py-6 text-center text-sm text-gray-500">Aucune notification</li>}
-            {db.notifications.slice(0, 20).map((n) => {
+            {mine.length === 0 && <li className="px-3 py-6 text-center text-sm text-gray-500">Aucune notification</li>}
+            {mine.slice(0, 25).map((n) => {
               const content = (
                 <span className="flex gap-3">
-                  <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", DOT[n.level], n.read && "opacity-30")} />
+                  <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", DOT[n.level], isRead(n, user?.id) && "opacity-30")} />
                   <span className="min-w-0">
-                    <span className={cn("block text-sm text-gray-800 dark:text-white/90", !n.read && "font-medium")}>{n.title}</span>
+                    <span className={cn("block text-sm text-gray-800 dark:text-white/90", !isRead(n, user?.id) && "font-medium")}>{n.title}</span>
                     <span className="block text-theme-xs text-gray-500 dark:text-gray-400">{n.body}</span>
                     <span className="block text-[11px] text-gray-400">{formatDateTime(n.date)}</span>
                   </span>
@@ -60,7 +62,7 @@ export default function NotificationDropdown() {
               );
             })}
           </ul>
-          <p className="border-t border-gray-100 px-3 pt-2 text-[11px] text-gray-400 dark:border-gray-800">Notifications internes de démonstration — aucun SMS, e-mail ou message n&apos;est envoyé.</p>
+          <p className="border-t border-gray-100 px-3 pt-2 text-[11px] text-gray-400 dark:border-gray-800">Alertes internes et push du navigateur (onglet ouvert). Réglages : Administration › Alertes.</p>
         </div>
       )}
     </HeaderPopover>

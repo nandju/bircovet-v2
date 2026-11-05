@@ -1,5 +1,6 @@
 "use client";
 
+import { vitalAlerts } from "@/lib/vitals";
 import ComponentCard from "@/components/common/ComponentCard";
 import DemoNotice from "@/components/common/DemoNotice";
 import { FormGrid, NumberField, SelectField, TextAreaField, TextField } from "@/components/form/Field";
@@ -86,7 +87,16 @@ export default function ConsultationEditor({ value: v, onChange, lockParties, ac
             <NumberField label="Poids" suffix="kg" value={v.weightKg ?? NaN} onChange={(x) => set("weightKg", Number.isFinite(x) ? x : undefined)} step={0.1} />
             <NumberField label="Température" suffix="°C" value={v.temperature ?? NaN} onChange={(x) => set("temperature", Number.isFinite(x) ? x : undefined)} step={0.1} />
             <NumberField label="Fréq. cardiaque" suffix="bpm" value={v.heartRate ?? NaN} onChange={(x) => set("heartRate", Number.isFinite(x) ? x : undefined)} />
+            <NumberField label="Fréq. respiratoire" suffix="mvt/min" value={v.respRate ?? NaN} onChange={(x) => set("respRate", Number.isFinite(x) ? x : undefined)} />
+            <SelectField label="Muqueuses" value={v.mucous ?? ""} onChange={(x) => set("mucous", x || undefined)} options={["Roses", "Pâles", "Congestionnées", "Ictériques", "Cyanosées", "Sèches"].map((m) => ({ value: m, label: m }))} allowEmpty placeholder="—" />
+            <NumberField label="TRC" suffix="s" value={v.crtSec ?? NaN} onChange={(x) => set("crtSec", Number.isFinite(x) ? x : undefined)} step={0.5} min={0} />
+            <SelectField label="Pouls" value={v.pulse ?? ""} onChange={(x) => set("pulse", x || undefined)} options={["Fort et régulier", "Faible", "Filant", "Irrégulier", "Bondissant"].map((m) => ({ value: m, label: m }))} allowEmpty placeholder="—" />
+            <NumberField label="Déshydratation" suffix="%" value={v.dehydrationPct ?? NaN} onChange={(x) => set("dehydrationPct", Number.isFinite(x) ? x : undefined)} min={0} max={15} />
+            <NumberField label="État corporel (1-9)" value={v.bodyCondition ?? NaN} onChange={(x) => set("bodyCondition", Number.isFinite(x) ? x : undefined)} min={1} max={9} />
+            <NumberField label="Douleur (0-10)" value={v.painScore ?? NaN} onChange={(x) => set("painScore", Number.isFinite(x) ? x : undefined)} min={0} max={10} />
+            <NumberField label="Glycémie" suffix="g/L" value={v.glycemia ?? NaN} onChange={(x) => set("glycemia", Number.isFinite(x) ? x : undefined)} step={0.1} min={0} />
           </FormGrid>
+          {vitalAlerts(v).length > 0 && <p className="rounded-lg bg-warning-50 px-3 py-2 text-theme-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">À noter : {vitalAlerts(v).join(" · ")}</p>}
         </ComponentCard>
         <ComponentCard title="Hypothèses, diagnostic et plan de soins" desc="Saisis par le professionnel — aucune suggestion clinique automatique">
           <TextAreaField label="Hypothèses" value={v.hypotheses} onChange={(x) => set("hypotheses", x)} rows={2} />

@@ -102,40 +102,74 @@ export const decideCorrection: Service<{ id: string; approve: boolean; note?: st
     return { message: approve ? "Correction validée et appliquée au stock." : "Correction rejetée." };
   });
 
-export const transferStock: Service<{ lotId: string; toEstablishmentId: string; qty: number; location: string }> = (db, ctx, input) =>
+/**
+ * Envoi d'un transfert : le stock sort immédiatement de l'établissement expéditeur
+ * et reste « en transit » jusqu'à la réception validée par l'annexe destinataire.
+ */
+export const transferStock: Service<{ lotId: string; toEstablishmentId: string; qty: number; location: string; note?: string }> = (db, ctx, input) =>
   produce(db, (d) => {
     positive(input.qty, "La quantité");
     const lot = must(d.lots.find((l) => l.id === input.lotId));
     if (lot.establishmentId === input.toEstablishmentId) fail("Établissement de destination identique.");
     if (lot.status === "quarantaine" || lot.status === "perime" || lot.expiryDate < today(ctx)) fail("Lot non transférable (périmé ou en quarantaine).");
+    if (input.qty > lot.qtyAvailable) fail(`Quantité supérieure au disponible du lot (${lot.qtyAvailable}).`);
     const code = nextCode(d, "stockTransfer", "TRS");
     const tid = uid("trs");
-    applyMovement(d, ctx, { lotId: lot.id, type: "transfert_sortie", qty: -input.qty, ref: { kind: "transfert", id: tid }, note: `${code} vers ${input.toEstablishmentId}`, opKey: `${tid}-out` });
-    let dest = d.lots.find((l) => l.ref === lot.ref && l.establishmentId === input.toEstablishmentId);
-    if (!dest) {
-      dest = { ...lot, id: uid("lot"), establishmentId: input.toEstablishmentId, location: input.location, qtyReceived: 0, qtyAvailable: 0, receptionId: undefined };
-      d.lots.push(dest);
-    }
-    applyMovement(d, ctx, { lotId: dest.id, type: "transfert_entree", qty: input.qty, ref: { kind: "transfert", id: tid }, note: `${code} depuis ${lot.establishmentId}`, opKey: `${tid}-in` });
-    d.stockTransfers.unshift({ id: tid, code, date: ctx.now, fromEstablishmentId: lot.establishmentId, toEstablishmentId: input.toEstablishmentId, lotId: lot.id, qty: input.qty, userId: ctx.user.id, status: "effectue" });
-    audit(d, ctx, { module: "Stock", action: "Transfert inter-établissements", target: `${code} — ${lot.ref}`, newValue: `${input.qty}` });
-    return { message: `Transfert ${code} effectué.` };
+    const destName = d.establishments.find((e) => e.id === input.toEstablishmentId)?.name ?? input.toEstablishmentId;
+    applyMovement(d, ctx, { lotId: lot.id, type: "transfert_sortie", qty: -input.qty, ref: { kind: "transfert", id: tid }, note: `${code} vers ${destName} (en transit)`, opKey: `${tid}-out` });
+    d.stockTransfers.unshift({ id: tid, code, date: ctx.now, fromEstablishmentId: lot.establishmentId, toEstablishmentId: input.toEstablishmentId, lotId: lot.id, qty: input.qty, userId: ctx.user.id, status: "en_transit", location: input.location, note: input.note?.trim() || undefined });
+    const prod = d.products.find((p) => p.id === lot.productId);
+    notify(d, ctx, { title: `Transfert à réceptionner — ${destName}`, body: `${code} : ${input.qty} × ${prod?.name ?? "article"} (lot ${lot.ref}) envoyé par ${ctx.user.name}.`, level: "info", link: "/stock/transferts" });
+    audit(d, ctx, { module: "Stock", action: "Transfert envoyé", target: `${code} — ${lot.ref}`, newValue: `${input.qty} → ${destName}` });
+    return { message: `Transfert ${code} envoyé : l'annexe doit confirmer la réception.` };
   });
 
-export const startInventory: Service<{ establishmentId: string }, string> = (db, ctx, { establishmentId }) =>
+/** Réception par l'annexe destinataire : quantité réellement reçue, écart motivé. */
+export const receiveTransfer: Service<{ id: string; receivedQty: number; location: string; note: string }> = (db, ctx, input) =>
   produce(db, (d) => {
-    if (d.inventories.some((i) => i.establishmentId === establishmentId && i.status !== "valide")) fail("Un inventaire est déjà en cours pour cet établissement.");
+    const tr = must(d.stockTransfers.find((x) => x.id === input.id), "Transfert introuvable.");
+    if (tr.status !== "en_transit") fail("Ce transfert n'est pas en attente de réception.");
+    if (ctx.establishmentId !== tr.toEstablishmentId) fail("La réception se fait depuis l'établissement destinataire (changez d'établissement en haut de l'écran).");
+    if (input.receivedQty < 0 || input.receivedQty > tr.qty) fail(`Quantité reçue entre 0 et ${tr.qty}.`);
+    const gap = tr.qty - input.receivedQty;
+    if (gap > 0 && !input.note.trim()) fail("Expliquez l'écart (casse, manquant, erreur d'envoi…).");
+    const lot = must(d.lots.find((l) => l.id === tr.lotId));
+    if (input.receivedQty > 0) {
+      let dest = d.lots.find((l) => l.ref === lot.ref && l.productId === lot.productId && l.establishmentId === tr.toEstablishmentId);
+      if (!dest) {
+        dest = { ...lot, id: uid("lot"), establishmentId: tr.toEstablishmentId, location: input.location || tr.location || "Réserve", qtyReceived: 0, qtyAvailable: 0, receptionId: undefined, status: "disponible" };
+        d.lots.push(dest);
+      }
+      applyMovement(d, ctx, { lotId: dest.id, type: "transfert_entree", qty: input.receivedQty, ref: { kind: "transfert", id: tr.id }, note: `${tr.code} reçu`, opKey: `${tr.id}-in` });
+    }
+    tr.status = gap > 0 ? "recu_ecart" : "recu";
+    tr.receivedQty = input.receivedQty;
+    tr.receivedById = ctx.user.id;
+    tr.receivedAt = ctx.now;
+    tr.receptionNote = input.note.trim() || undefined;
+    if (gap > 0) notify(d, ctx, { title: `Écart sur le transfert ${tr.code}`, body: `${gap} unité(s) manquante(s) : ${input.note.trim()}`, level: "alerte", link: "/stock/transferts" });
+    audit(d, ctx, { module: "Stock", action: "Réception de transfert", target: tr.code, oldValue: String(tr.qty), newValue: String(input.receivedQty), reason: input.note || undefined });
+    return { message: gap > 0 ? `Réception enregistrée avec un écart de ${gap}.` : `Transfert ${tr.code} réceptionné.` };
+  });
+
+export const startInventory: Service<{ establishmentId: string; category?: string; search?: string }, string> = (db, ctx, { establishmentId, category, search }) =>
+  produce(db, (d) => {
+    const q = search?.trim().toLowerCase() ?? "";
+    const catLabel: Record<string, string> = { medicament: "Médicaments", vaccin: "Vaccins", antiparasitaire: "Antiparasitaires", consommable: "Consommables", aliment: "Aliments", materiel: "Matériel" };
+    const label = [category ? catLabel[category] ?? category : "", q ? `« ${search!.trim()} »` : ""].filter(Boolean).join(" · ") || "Inventaire complet";
+    if (d.inventories.some((i) => i.establishmentId === establishmentId && i.status !== "valide" && (i.scope?.label ?? "Inventaire complet") === label)) fail("Un inventaire sur ce périmètre est déjà en cours pour cet établissement.");
+    const inScope = (productId: string) => {
+      const p = d.products.find((x) => x.id === productId);
+      if (!p) return false;
+      if (category && p.category !== category) return false;
+      if (q && !`${p.name} ${p.brandName ?? ""} ${p.code}`.toLowerCase().includes(q)) return false;
+      return true;
+    };
+    const lines = d.lots.filter((l) => l.establishmentId === establishmentId && (l.qtyAvailable > 0 || l.status !== "perime") && inScope(l.productId)).map((l) => ({ lotId: l.id, expected: l.qtyAvailable, counted: null }));
+    if (!lines.length) fail("Aucun lot ne correspond à ce périmètre dans l'établissement.");
     const id = uid("inv");
     const code = nextCode(d, "inventory", "INV");
-    d.inventories.unshift({
-      id,
-      code,
-      date: ctx.now,
-      establishmentId,
-      authorId: ctx.user.id,
-      status: "en_cours",
-      lines: d.lots.filter((l) => l.establishmentId === establishmentId && (l.qtyAvailable > 0 || l.status !== "perime")).map((l) => ({ lotId: l.id, expected: l.qtyAvailable, counted: null })),
-    });
+    d.inventories.unshift({ id, code, date: ctx.now, establishmentId, authorId: ctx.user.id, status: "en_cours", scope: { category, search: q || undefined, label }, lines });
     return { message: `Inventaire ${code} ouvert.`, data: id };
   });
 

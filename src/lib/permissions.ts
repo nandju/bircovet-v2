@@ -26,7 +26,8 @@ export type ModuleId =
   | "documents"
   | "rapports"
   | "ia"
-  | "admin";
+  | "admin"
+  | "plateforme";
 
 export type PermAction = "read" | "create" | "update" | "validate" | "export" | "admin";
 
@@ -51,6 +52,7 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   rapports: "Rapports",
   ia: "Assistant IA",
   admin: "Administration",
+  plateforme: "Console éditeur Cliva",
 };
 
 export const ACTION_LABELS: Record<PermAction, string> = {
@@ -63,6 +65,7 @@ export const ACTION_LABELS: Record<PermAction, string> = {
 };
 
 export const ROLE_LABELS: Record<RoleId, string> = {
+  editeur: "Éditeur Cliva",
   dg: "DG vétérinaire",
   vet: "Vétérinaire habilité",
   assistant: "Assistant technique",
@@ -72,6 +75,7 @@ export const ROLE_LABELS: Record<RoleId, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<RoleId, string> = {
+  editeur: "Console de la plateforme : cliniques clientes, licences, statistiques d'usage anonymisées et campagnes publicitaires. Aucun accès aux données des cliniques.",
   dg: "Direction, administration, validation financière et données confidentielles.",
   vet: "Dossiers cliniques, consultations, prescriptions, hospitalisations et documents autorisés.",
   assistant: "Tâches attribuées, soins autorisés, missions terrain et opérations de stock permises.",
@@ -85,8 +89,9 @@ type Perms = Partial<Record<ModuleId, string>>; // lettres : r c u v e a
 const ALL = "rcuvea";
 
 const MATRIX: Record<RoleId, Perms> = {
+  editeur: { plateforme: ALL },
   dg: Object.fromEntries(
-    (Object.keys(MODULE_LABELS) as ModuleId[]).map((m) => [m, ALL]),
+    (Object.keys(MODULE_LABELS) as ModuleId[]).filter((m) => m !== "plateforme").map((m) => [m, ALL]),
   ) as Perms,
   vet: {
     dashboard: "r",
@@ -166,14 +171,38 @@ const LETTER: Record<PermAction, string> = {
   admin: "a",
 };
 
-export function can(role: RoleId | undefined, module: ModuleId, action: PermAction = "read"): boolean {
-  if (!role) return false;
-  return (MATRIX[role][module] ?? "").includes(LETTER[action]);
+/* Réglages du DG (paramètres) appliqués par-dessus la matrice par défaut. */
+let OVERRIDES: Partial<Record<RoleId, Perms>> = {};
+let LABELS: Partial<Record<RoleId, { label?: string; description?: string }>> = {};
+export function applyRoleSettings(perms?: Partial<Record<RoleId, Partial<Record<string, string>>>>, labels?: Partial<Record<RoleId, { label?: string; description?: string }>>) {
+  OVERRIDES = (perms ?? {}) as Partial<Record<RoleId, Perms>>;
+  LABELS = labels ?? {};
 }
 
-export function rolePermissions(role: RoleId): Perms {
-  return MATRIX[role];
+export const defaultLetters = (role: RoleId, module: ModuleId) => MATRIX[role][module] ?? "";
+
+export function letters(role: RoleId, module: ModuleId): string {
+  // Cloison éditeur / clinique : l'éditeur ne voit que la plateforme, les cliniques jamais la console.
+  if (module === "plateforme") return role === "editeur" ? ALL : "";
+  if (role === "editeur") return "";
+  // Le DG garde toujours l'administration (pas de verrouillage possible).
+  if (role === "dg" && module === "admin") return ALL;
+  return OVERRIDES[role]?.[module] ?? MATRIX[role][module] ?? "";
 }
+
+export function can(role: RoleId | undefined, module: ModuleId, action: PermAction = "read"): boolean {
+  if (!role) return false;
+  return letters(role, module).includes(LETTER[action]);
+}
+
+export const ACTION_LETTER = LETTER;
+
+export function rolePermissions(role: RoleId): Perms {
+  return Object.fromEntries((Object.keys(MODULE_LABELS) as ModuleId[]).map((m) => [m, letters(role, m)])) as Perms;
+}
+
+export const roleLabel = (r: RoleId) => LABELS[r]?.label || ROLE_LABELS[r];
+export const roleDescription = (r: RoleId) => LABELS[r]?.description || ROLE_DESCRIPTIONS[r];
 
 /** Rôles autorisés à valider un acte clinique. */
 export const CLINICAL_VALIDATORS: RoleId[] = ["dg", "vet"];

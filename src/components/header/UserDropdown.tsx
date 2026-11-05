@@ -21,7 +21,7 @@ export default function UserDropdown() {
       trigger={({ toggle, open }) => (
         <button onClick={toggle} aria-expanded={open} className="flex items-center gap-2 text-gray-700 dark:text-gray-400">
           <AvatarInitials name={user.name} />
-          <span className="hidden min-w-0 text-start lg:block">
+          <span className="hidden min-w-0 text-start lg:block xl:hidden 2xl:block">
             <span className="block max-w-36 truncate text-theme-sm font-medium text-gray-800 dark:text-white/90">{user.name}</span>
             <span className="block max-w-36 truncate text-theme-xs text-gray-500">{ROLE_LABELS[user.roleId]}</span>
           </span>

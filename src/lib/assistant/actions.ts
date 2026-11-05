@@ -47,7 +47,7 @@ export const ASSISTANT_ACTIONS: AssistantAction[] = [
   { key: "purchases.suppliers", label: "Fournisseurs", hint: "Liste des fournisseurs", path: "/achats/fournisseurs", module: "achats" },
   { key: "billing.invoices", label: "Factures", hint: "Factures du mois, impayés", path: "/facturation", module: "facturation" },
   { key: "billing.quotes", label: "Devis", hint: "Créer ou suivre un devis", path: "/facturation/devis", module: "facturation" },
-  { key: "billing.proforma", label: "Factures pro forma", hint: "Documents commerciaux non engageants", path: "/facturation/proforma", module: "facturation" },
+  { key: "billing.proforma", label: "Devis / pro forma", hint: "Documents commerciaux non engageants", path: "/facturation/devis", module: "facturation" },
   { key: "billing.creditNotes", label: "Avoirs", hint: "Notes de crédit", path: "/facturation/avoirs", module: "facturation" },
   { key: "finance.payments", label: "Encaissements", hint: "Enregistrer un paiement", path: "/finances/encaissements", module: "finances" },
   { key: "finance.expenses", label: "Dépenses", hint: "Enregistrer une dépense, caisse", path: "/finances/depenses", module: "finances" },

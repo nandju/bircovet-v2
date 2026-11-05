@@ -1,6 +1,6 @@
 import { formatDateTime, uid } from "../format";
 import type { Appointment, DemoDB, QueueStatus, Reminder } from "../types";
-import { audit, fail, must, produce, type Service } from "./core";
+import { audit, fail, must, notify, produce, type Service } from "./core";
 
 export interface AppointmentInput {
   establishmentId: string;
@@ -12,6 +12,8 @@ export interface AppointmentInput {
   reason: string;
   resource: string;
   reminder: Reminder;
+  kind?: import("../activityKinds").ActivityKind;
+  home?: import("../types").HomeVisit;
 }
 
 const toMs = (iso: string) => new Date(iso).getTime();
@@ -50,21 +52,64 @@ function validate(i: AppointmentInput) {
   if (!i.reason.trim()) fail("Motif requis.");
 }
 
-export const createAppointment: Service<{ input: AppointmentInput; force?: boolean }, string> = (db, ctx, { input, force }) =>
+/** Le RDV doit-il être validé par le praticien ? (pris par un collaborateur pour un praticien « sous validation »). */
+export function needsApproval(db: DemoDB, practitionerId: string, byUserId: string, byRole: string) {
+  const s = db.settings.apptApproval;
+  if (!s?.enabled || !s.practitionerIds.includes(practitionerId)) return false;
+  return byUserId !== practitionerId && byRole !== "dg";
+}
+
+export const createAppointment: Service<{ input: AppointmentInput; force?: boolean; note?: string }, string> = (db, ctx, { input, force, note }) =>
   produce(db, (d) => {
     validate(input);
     const conflicts = findConflicts(d, input);
-    if (conflicts.length && !force) fail(`Conflit de créneau : ${conflicts.map((c) => c.label).join(" ; ")}`);
+    const ask = needsApproval(d, input.practitionerId, ctx.user.id, ctx.user.roleId);
+    // Une demande n'est pas bloquée par un conflit : c'est justement au praticien de trancher.
+    if (conflicts.length && !force && !ask) fail(`Conflit de créneau : ${conflicts.map((c) => c.label).join(" ; ")}`);
     const id = uid("apt");
     d.appointments.push({
       ...input,
       id,
-      status: "planifie",
+      status: ask ? "demande" : "planifie",
       queueStatus: "attendu",
-      history: [{ date: ctx.now, userId: ctx.user.id, action: conflicts.length ? "Rendez-vous créé malgré un conflit signalé" : "Rendez-vous créé" }],
+      request: ask ? { requestedById: ctx.user.id, requestedAt: ctx.now, note: note?.trim() || undefined } : undefined,
+      history: [{ date: ctx.now, userId: ctx.user.id, action: ask ? "Demande de rendez-vous (à valider)" : conflicts.length ? "Rendez-vous créé malgré un conflit signalé" : "Rendez-vous créé" }],
     });
-    audit(d, ctx, { module: "Agenda", action: "Création de rendez-vous", target: `${formatDateTime(input.start)} — ${input.reason}` });
+    audit(d, ctx, { module: "Agenda", action: ask ? "Demande de rendez-vous" : "Création de rendez-vous", target: `${formatDateTime(input.start)} — ${input.reason}` });
+    if (ask) {
+      notify(d, ctx, { title: "Demande de rendez-vous à valider", body: `${ctx.user.name} propose ${formatDateTime(input.start)} — ${input.reason}${conflicts.length ? " (créneau déjà occupé)" : ""}.`, level: "alerte", link: "/agenda/demandes", toUserIds: [input.practitionerId], push: true });
+      return { message: "Demande envoyée : le rendez-vous sera confirmé après l'accord du praticien.", data: id };
+    }
     return { message: "Rendez-vous créé.", data: id };
+  });
+
+/** Le praticien (ou le DG) accepte, déplace ou refuse une demande de RDV. */
+export const decideAppointmentRequest: Service<{ id: string; decision: "accepte" | "deplace" | "refuse"; note?: string; newStart?: string; force?: boolean }> = (db, ctx, { id, decision, note, newStart, force }) =>
+  produce(db, (d) => {
+    const a = must(d.appointments.find((x) => x.id === id), "Rendez-vous introuvable.");
+    if (a.status !== "demande" || !a.request) fail("Cette demande a déjà été traitée.");
+    if (ctx.user.id !== a.practitionerId && ctx.user.roleId !== "dg") fail("Seul le praticien concerné ou le DG valide cette demande.");
+    if (decision === "refuse" && !note?.trim()) fail("Indiquez le motif du refus (il sera transmis au collaborateur).");
+    if (decision === "deplace") {
+      if (!newStart) fail("Choisissez le nouvel horaire.");
+      a.request.originalStart = a.start;
+      a.start = newStart;
+    }
+    if (decision !== "refuse") {
+      const conflicts = findConflicts(d, a, a.id);
+      if (conflicts.length && !force) fail(`Vous êtes déjà pris : ${conflicts.map((c) => c.label).join(" ; ")}. Choisissez un autre horaire ou confirmez quand même.`);
+    }
+    a.status = decision === "refuse" ? "annule" : "planifie";
+    if (decision === "refuse") {
+      a.queueStatus = "annule";
+      a.cancelReason = `Demande refusée : ${note?.trim()}`;
+    }
+    Object.assign(a.request, { decidedById: ctx.user.id, decidedAt: ctx.now, decision, decisionNote: note?.trim() || undefined });
+    const what = decision === "accepte" ? "acceptée" : decision === "deplace" ? `acceptée à ${formatDateTime(a.start)}` : "refusée";
+    a.history.push({ date: ctx.now, userId: ctx.user.id, action: `Demande ${what}${note?.trim() ? ` — ${note.trim()}` : ""}` });
+    notify(d, ctx, { title: `Demande de RDV ${what}`, body: `${formatDateTime(a.start)} — ${a.reason}${decision !== "accepte" ? " : prévenez le client." : "."}${note?.trim() ? ` ${note.trim()}` : ""}`, level: decision === "refuse" ? "alerte" : "info", link: "/agenda", toUserIds: [a.request.requestedById], push: true });
+    audit(d, ctx, { module: "Agenda", action: "Décision sur demande de RDV", target: `${formatDateTime(a.start)} — ${a.reason}`, decision: what });
+    return { message: `Demande ${what}.` };
   });
 
 export const updateAppointment: Service<{ id: string; input: AppointmentInput; reason?: string; force?: boolean }> = (db, ctx, { id, input, reason, force }) =>
@@ -163,3 +208,23 @@ export const removeUnavailability: Service<{ id: string }> = (db, ctx, { id }) =
   });
 
 export type { Appointment };
+
+/** Départ / arrivée de l'équipe pour une consultation à domicile. */
+export const markHomeVisit: Service<{ id: string; step: "depart" | "arrivee" }> = (db, ctx, input) =>
+  produce(db, (d) => {
+    const a = must(d.appointments.find((x) => x.id === input.id));
+    if (!a.home) fail("Ce rendez-vous n'est pas une consultation à domicile.");
+    if (input.step === "depart") a.home.departedAt = ctx.now;
+    else a.home.arrivedAt = ctx.now;
+    if (input.step === "arrivee" && a.status === "planifie") a.status = "confirme";
+    a.history.push({ date: ctx.now, userId: ctx.user.id, action: input.step === "depart" ? "Départ vers le domicile" : "Arrivée au domicile" });
+    return { message: input.step === "depart" ? "Départ noté." : "Arrivée notée." };
+  });
+
+export const saveApptApproval: Service<{ enabled: boolean; practitionerIds: string[] }> = (db, ctx, input) =>
+  produce(db, (d) => {
+    if (ctx.user.roleId !== "dg") fail("Seul le DG règle la validation des rendez-vous.");
+    d.settings.apptApproval = { enabled: input.enabled, practitionerIds: [...new Set(input.practitionerIds)] };
+    audit(d, ctx, { module: "Agenda", action: "Validation des RDV", target: input.enabled ? `${input.practitionerIds.length} agenda(s) soumis à validation` : "désactivée" });
+    return { message: input.enabled ? "Les RDV pris par les collaborateurs pour ces agendas devront être validés." : "Validation des RDV désactivée." };
+  });

@@ -16,6 +16,9 @@ import Button from "@/components/ui/button/Button";
 import Tabs from "@/components/ui/tabs/Tabs";
 import { useDemo } from "@/context/DemoStoreContext";
 import { useModal } from "@/hooks/useModal";
+import { useNow } from "@/hooks/useNow";
+import TreatmentCard from "@/components/treatments/TreatmentCard";
+import TreatmentFormModal from "@/components/treatments/TreatmentFormModal";
 import { useOptions } from "@/hooks/useOptions";
 import { Link, useRouter } from "@/i18n/navigation";
 import { PlusIcon } from "@/icons";
@@ -51,6 +54,8 @@ export default function HospitalizationDetail({ id }: { id: string }) {
   const [consentBy, setConsentBy] = useState("");
   const [deliver, setDeliver] = useState<Prescription | null>(null);
   const careModal = useModal();
+  const trtModal = useModal();
+  const now = useNow();
   const dischargeModal = useModal();
   const rx = useModal();
   const pay = useModal();
@@ -63,6 +68,7 @@ export default function HospitalizationDetail({ id }: { id: string }) {
   const quote = db.quotes.find((q) => q.id === h.quoteId);
   const prescriptions = db.prescriptions.filter((p) => p.hospitalizationId === h.id);
   const editable = can("hospitalisation", "update");
+  const courses = (db.treatments ?? []).filter((c) => c.hospitalizationId === h.id);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -99,7 +105,7 @@ export default function HospitalizationDetail({ id }: { id: string }) {
           ["Payé", inv ? formatXOF(invoicePaid(db, inv.id)) : "—"],
           ["Solde restant", inv ? <span key="b" className={invoiceBalance(db, inv) > 0 ? "text-error-600" : "text-success-600"}>{formatXOF(invoiceBalance(db, inv))}</span> : "—"],
         ].map(([l, v], i) => (
-          <div key={i} className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4 dark:border-gray-800 dark:bg-white/3">
+          <div key={i} className="rounded-3xl border border-gray-200/70 bg-white shadow-cliva p-3 sm:p-4 dark:border-gray-800 dark:bg-white/3">
             <p className="text-theme-xs text-gray-500">{l}</p>
             <div className="mt-1 text-sm font-semibold text-gray-800 dark:text-white/90">{v}</div>
           </div>
@@ -112,6 +118,7 @@ export default function HospitalizationDetail({ id }: { id: string }) {
         onChange={setTab}
         tabs={[
           { key: "sejour", label: "Séjour" },
+          { key: "trt", label: "Traitements suivis", count: courses.length },
           { key: "plan", label: "Plan de soins", count: h.carePlan.length },
           { key: "care", label: "Soins effectués", count: h.careActs.length },
           { key: "obs", label: "Observations", count: h.observations.length },
@@ -119,7 +126,7 @@ export default function HospitalizationDetail({ id }: { id: string }) {
           { key: "rx", label: "Prescriptions", count: prescriptions.length },
           { key: "billing", label: "Préfacturation" },
           { key: "exit", label: "Sortie et suivi" },
-          { key: "docs", label: "Documents" },
+          { key: "docs", label: "Documents et liens" },
         ]}
       />
 
@@ -158,6 +165,20 @@ export default function HospitalizationDetail({ id }: { id: string }) {
               </div>
             )}
           </ComponentCard>
+        </div>
+      )}
+
+      {tab === "trt" && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Chaque prise est cochée par l&apos;assistant qui l&apos;administre : vous voyez qui a fait quoi, et ce qui manque.</p>
+            {open && editable && <Button size="sm" startIcon={<PlusIcon />} onClick={trtModal.openModal}>Nouveau traitement</Button>}
+          </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {courses.map((c) => <TreatmentCard key={c.id} c={c} now={now} showPatient={false} />)}
+          </div>
+          {courses.length === 0 && <p className="rounded-2xl border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-500 dark:border-gray-700">Aucun traitement suivi pour ce séjour.</p>}
+          <TreatmentFormModal isOpen={trtModal.isOpen} onClose={trtModal.closeModal} preset={{ setting: "hospitalisation", patientId: h.patientId, hospitalizationId: h.id, vetId: h.vetId }} />
         </div>
       )}
 

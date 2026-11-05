@@ -39,7 +39,7 @@ const Button: React.FC<ButtonProps> = ({
 
   // Variant Classes
   const variantClasses = {
-    primary: "bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300",
+    primary: "bg-linear-to-br from-brand-500 to-brand-600 text-white shadow-theme-xs hover:from-brand-600 hover:to-brand-700 disabled:from-brand-300 disabled:to-brand-300",
     secondary: "bg-tertiary-500 text-white shadow-theme-xs hover:bg-tertiary-600 disabled:bg-tertiary-300",
     danger: "bg-error-500 text-white shadow-theme-xs hover:bg-error-600 disabled:bg-error-300",
     soft: "bg-brand-50 text-brand-700 hover:bg-brand-100 dark:bg-brand-500/15 dark:text-brand-300 dark:hover:bg-brand-500/25",

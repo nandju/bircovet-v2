@@ -86,7 +86,7 @@ export default function GlobalSearch({ className }: { className?: string }) {
         }}
         placeholder="Rechercher un client, patient, facture…"
         aria-label="Recherche globale"
-        className="h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 ps-12 pe-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden xl:w-96 2xl:w-107.5 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30"
+        className="h-11 w-full rounded-full border border-gray-200 bg-gray-50/80 focus:bg-white py-2.5 ps-12 pe-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30"
       />
       <kbd className="pointer-events-none absolute end-2.5 top-1/2 hidden -translate-y-1/2 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-500 sm:block dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">Ctrl K</kbd>
       {open && q.trim().length >= 2 && (

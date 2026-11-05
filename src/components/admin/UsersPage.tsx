@@ -22,7 +22,7 @@ import { createUser, setUserActive, updateUser, type UserInput } from "@/lib/ser
 import type { RoleId, User } from "@/lib/types";
 import { useEffect, useState } from "react";
 
-const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as RoleId[]).map((r) => ({ value: r, label: ROLE_LABELS[r] }));
+const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as RoleId[]).filter((r) => r !== "editeur").map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
 export default function UsersPage() {
   const { db, run, user: me } = useDemo();

@@ -7,6 +7,7 @@ import type { ModuleId } from "@/lib/permissions";
 import HeaderPopover from "./HeaderPopover";
 
 const ITEMS: { label: string; href: string; module: ModuleId; icon: React.ReactNode }[] = [
+  { label: "Vente pharmacie", href: "/stock/vente", module: "stock", icon: <CartIcon /> },
   { label: "Rendez-vous", href: "/agenda?nouveau=1", module: "agenda", icon: <CalenderIcon /> },
   { label: "Client", href: "/clients/nouveau", module: "clients", icon: <UsersIcon /> },
   { label: "Patient", href: "/patients?nouveau=1", module: "patients", icon: <PawIcon /> },
@@ -26,7 +27,7 @@ export default function QuickCreate() {
     <HeaderPopover
       className="sm:w-72"
       trigger={({ open, toggle }) => (
-        <button onClick={toggle} aria-expanded={open} className="flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 lg:h-11 lg:px-4">
+        <button onClick={toggle} aria-expanded={open} className="flex h-10 items-center gap-1.5 rounded-full bg-linear-to-br from-brand-500 to-brand-600 px-4 text-sm font-medium text-white shadow-theme-sm hover:from-brand-600 hover:to-brand-700 lg:h-11 lg:px-5">
           <PlusIcon className="size-4" />
           <span className="hidden sm:inline">Créer</span>
         </button>

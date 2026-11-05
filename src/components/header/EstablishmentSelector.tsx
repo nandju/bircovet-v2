@@ -12,7 +12,7 @@ export default function EstablishmentSelector() {
       align="start"
       className="sm:w-80"
       trigger={({ open, toggle }) => (
-        <button onClick={toggle} aria-expanded={open} className="flex h-10 max-w-56 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50 lg:h-11 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/5">
+        <button onClick={toggle} aria-expanded={open} className="flex h-10 max-w-56 items-center xl:max-w-52 2xl:max-w-60 gap-2 rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 hover:bg-gray-50 lg:h-11 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/5">
           <BuildingIcon className="size-4.5 shrink-0 text-tertiary-500" />
           <span className="truncate">{establishment?.name.replace("Cliva ", "")}</span>
           <ChevronDownIcon className={cn("size-4 shrink-0 transition", open && "rotate-180")} />

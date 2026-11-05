@@ -25,7 +25,7 @@ export default function BillingDocument({ title, code, date, secondDate, clientN
   const total = docTotal(lines);
   const discount = docGross(lines) - total;
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 print:border-0 print:p-0 dark:border-gray-800 dark:bg-gray-900 print:dark:bg-white">
+    <div className="cliva-doc relative overflow-hidden rounded-3xl print:shadow-none border border-gray-200/70 bg-white shadow-cliva p-5 sm:p-8 print:border-0 print:p-0 dark:border-gray-800 dark:bg-gray-900 print:dark:bg-white">
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
         <span className="-rotate-[24deg] text-center text-3xl font-bold tracking-widest text-error-500/10 sm:text-5xl">DÉMONSTRATION<br />SANS VALEUR FISCALE</span>
       </div>

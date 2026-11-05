@@ -24,10 +24,10 @@ export default function SignInForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) router.replace("/");
+    if (user) router.replace(user.roleId === "editeur" ? "/editeur" : "/");
   }, [user, router]);
 
-  const profiles = db.users.filter((u) => u.active);
+  const profiles = [...db.users.filter((u) => u.active), ...(db.platform?.editor ? [db.platform.editor] : [])];
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

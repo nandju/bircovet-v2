@@ -3,7 +3,7 @@ import { LockIcon } from "@/icons";
 
 export default function AccessDenied({ what }: { what?: string }) {
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center rounded-2xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-gray-800 dark:bg-white/3">
+    <div className="mx-auto flex max-w-lg flex-col items-center rounded-3xl border border-gray-200/70 bg-white shadow-cliva px-6 py-12 text-center dark:border-gray-800 dark:bg-white/3">
       <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-warning-50 text-warning-600 dark:bg-warning-500/15 [&>svg]:size-6">
         <LockIcon />
       </span>

@@ -1,7 +1,10 @@
 "use client";
 
+import { universe } from "@/lib/universe";
 import ClivaLogo from "@/components/common/ClivaLogo";
 import { useDemo } from "@/context/DemoStoreContext";
+import { navBadges } from "./navBadges";
+import { SIMPLE_MENU, useDisplayPrefs } from "@/hooks/useDisplayPrefs";
 import { Link, usePathname } from "@/i18n/navigation";
 import { ChevronDownIcon, HorizontaLDots } from "@/icons";
 import { cn } from "@/utils";
@@ -17,7 +20,11 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const { can } = useDemo();
+  const { can, db, user } = useDemo();
+  const [{ simple }] = useDisplayPrefs();
+  const badges = navBadges(db, user);
+  const Badge = (k: string) => (badges[k] ? <span className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-error-500 px-1.5 text-[11px] leading-5 font-semibold text-white" aria-label={`${badges[k]} à traiter`}>{badges[k]}</span> : null);
+  const groupCount = (nav: NavItem) => (nav.subItems ?? []).reduce((n, s) => n + (badges[s.key] ?? 0), 0);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const showText = isExpanded || isHovered || isMobileOpen;
 
@@ -26,10 +33,11 @@ const AppSidebar: React.FC = () => {
       NAV_GROUPS.map((g) => ({
         ...g,
         items: g.items
-          .filter((it) => can(it.module) || it.subItems?.some((s) => s.module && can(s.module)))
-          .map((it) => ({ ...it, subItems: it.subItems?.filter((s) => can(s.module ?? it.module)) })),
+          .filter((it) => can(it.module) || (it.orModule && can(it.orModule)) || it.subItems?.some((s) => s.module && can(s.module)))
+          .filter((it) => !simple || SIMPLE_MENU.has(it.key))
+          .map((it) => ({ ...it, subItems: it.subItems?.filter((s) => can(s.module ?? it.module) && (!simple || SIMPLE_MENU.has(s.key))) })),
       })).filter((g) => g.items.length),
-    [can],
+    [can, simple],
   );
 
   /** Sous-élément actif = préfixe le plus long correspondant à l'URL. */
@@ -58,14 +66,15 @@ const AppSidebar: React.FC = () => {
           >
             <span className={cn("[&>svg]:size-5.5", isOpen || parentActive ? "menu-item-icon-active" : "menu-item-icon-inactive")}>{nav.icon}</span>
             {showText && <span className="menu-item-text truncate">{t(`items.${nav.key}`)}</span>}
-            {showText && <ChevronDownIcon className={cn("ms-auto size-5 shrink-0 transition-transform duration-200", isOpen && "rotate-180 text-brand-500")} />}
+            {showText && !isOpen && groupCount(nav) > 0 && <span className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-error-500 px-1.5 text-[11px] leading-5 font-semibold text-white">{groupCount(nav)}</span>}
+            {showText && <ChevronDownIcon className={cn(!isOpen && groupCount(nav) > 0 ? "ms-1" : "ms-auto", "size-5 shrink-0 transition-transform duration-200", isOpen && "rotate-180 text-brand-500")} />}
           </button>
           {showText && isOpen && (
             <ul className="ms-9 mt-1.5 space-y-0.5 border-s border-gray-100 ps-2 dark:border-gray-800">
               {nav.subItems.map((s) => (
                 <li key={s.key}>
                   <Link href={s.path} className={cn("menu-dropdown-item py-2", activeSub === s.path ? "menu-dropdown-item-active" : "menu-dropdown-item-inactive")}>
-                    {t(`items.${s.key}`)}
+                    <span className="flex w-full items-center gap-2">{t(`items.${s.key}`)}{Badge(s.key)}</span>
                   </Link>
                 </li>
               ))}
@@ -80,6 +89,7 @@ const AppSidebar: React.FC = () => {
         <Link href={nav.path ?? "/"} className={cn("group menu-item", active ? "menu-item-active" : "menu-item-inactive", !showText && "xl:justify-center")} title={!showText ? t(`items.${nav.key}`) : undefined}>
           <span className={cn("[&>svg]:size-5.5", active ? "menu-item-icon-active" : "menu-item-icon-inactive")}>{nav.icon}</span>
           {showText && <span className="menu-item-text truncate">{t(`items.${nav.key}`)}</span>}
+          {showText && Badge(nav.key)}
         </Link>
       </li>
     );
@@ -88,7 +98,7 @@ const AppSidebar: React.FC = () => {
   return (
     <aside
       className={cn(
-        "fixed top-0 start-0 z-999999 flex h-dvh flex-col border-e border-gray-200 bg-white px-4 text-gray-900 transition-all duration-300 ease-in-out xl:z-50 dark:border-gray-800 dark:bg-gray-900 print:hidden",
+        "fixed top-0 start-0 z-999999 flex h-dvh flex-col border-e border-gray-200/70 bg-white/90 backdrop-blur-md px-4 text-gray-900 transition-all duration-300 ease-in-out xl:z-50 dark:border-gray-800 dark:bg-gray-900 print:hidden",
         isExpanded || isMobileOpen || isHovered ? "w-72.5" : "w-22.5",
         isMobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
         "xl:translate-x-0 xl:rtl:translate-x-0",
@@ -108,7 +118,7 @@ const AppSidebar: React.FC = () => {
             {groups.map((g) => (
               <div key={g.key}>
                 <h2 className={cn("mb-2 flex px-3 text-theme-xs leading-5 font-medium tracking-wide text-gray-400 uppercase", !showText ? "xl:justify-center xl:px-0" : "justify-start")}>
-                  {showText ? t(`groups.${g.key}`) : <HorizontaLDots />}
+                  {showText ? (<span className="flex items-center gap-2"><span aria-hidden className={cn("size-1.5 rounded-full", universe(g.key).dot)} />{t(`groups.${g.key}`)}</span>) : <HorizontaLDots />}
                 </h2>
                 <ul className="flex flex-col gap-1">{g.items.map(renderItem)}</ul>
               </div>

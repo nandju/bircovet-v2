@@ -15,8 +15,10 @@ import { useOptions } from "@/hooks/useOptions";
 import { Link } from "@/i18n/navigation";
 import { DownloadIcon, UploadIcon } from "@/icons";
 import { productName, supplierName, userName } from "@/lib/calc";
-import { addDays, formatDate, formatDateTime } from "@/lib/format";
-import { createReception, parseBLI, rejectReception, validateReception } from "@/lib/services/suppliersService";
+import { addDays, daysBetween, formatDate, formatDateTime } from "@/lib/format";
+import PrintSheet from "@/components/print/PrintSheet";
+import { PrinterIcon } from "@/icons";
+import { checkReceptionLine, createReception, parseBLI, receivedForLine, rejectReception, validateReception } from "@/lib/services/suppliersService";
 import type { Reception } from "@/lib/types";
 import { downloadText } from "@/utils/export";
 import { cn } from "@/utils";
@@ -33,6 +35,16 @@ export default function ReceptionsPage() {
   const sample = `# Exemple de fichier BLI/EDI simplifié (démonstration)\nCODE_ARTICLE;QTE;LOT;PEREMPTION;PRIX_UNITAIRE\nCON-001;100;BLI-SR-${today.replace(/-/g, "")};${addDays(today, 800)};60\nAPR-002;50;BLI-VM-${today.replace(/-/g, "")};${addDays(today, 500)};350\n`;
   const parsed = text ? parseBLI(db, text) : { lines: [], errors: [] };
   const canValidate = can("achats", "create") && can("stock", "update");
+  const [lineCheck, setLineCheck] = useState<{ rec: Reception; lineId: string; status: "ecart" | "refuse" } | null>(null);
+  const [lcQty, setLcQty] = useState(0);
+  const [lcNote, setLcNote] = useState("");
+  const [missingOpen, setMissingOpen] = useState(false);
+  const [missingSup, setMissingSup] = useState("");
+  const missing = db.purchaseOrders
+    .filter((po) => ["envoyee", "partiellement_recue"].includes(po.status) && (!missingSup || po.supplierId === missingSup))
+    .flatMap((po) => po.lines.map((l) => ({ po, l, received: receivedForLine(db, l.id) })))
+    .filter((x) => x.received < x.l.qtyOrdered)
+    .sort((a, b) => a.po.expectedDate.localeCompare(b.po.expectedDate));
 
   return (
     <div className="space-y-4">
@@ -40,11 +52,16 @@ export default function ReceptionsPage() {
         pageTitle="Réceptions fournisseurs"
         trail={[{ label: "Achats", href: "/achats" }]}
         actions={
+          <>
+          <Button size="sm" variant="outline" startIcon={<PrinterIcon />} onClick={() => setMissingOpen(true)}>
+            Commandes non reçues ({missing.length})
+          </Button>
           <Can module="stock" action="create">
             <Button size="sm" variant="outline" startIcon={<UploadIcon />} onClick={() => { setText(""); setSupplierId(""); setRef(""); bli.openModal(); }}>
               Importer un BLI / EDI (simulé)
             </Button>
           </Can>
+          </>
         }
       />
       <DemoNotice>Une réception — saisie ou importée — est toujours « proposée » : elle n&apos;augmente le stock vendable qu&apos;après validation. Les écarts entre quantités commandées et reçues restent visibles.</DemoNotice>
@@ -66,9 +83,12 @@ export default function ReceptionsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge kind="reception" value={r.status} />
+                  {r.status === "proposee" && (
+                    <span className="text-theme-xs text-gray-500">{r.lines.filter((l) => l.check).length}/{r.lines.length} contrôlée(s)</span>
+                  )}
                   {r.status === "proposee" && canValidate && (
                     <>
-                      <Button size="xs" onClick={() => run(validateReception, { id: r.id })}>
+                      <Button size="xs" disabled={r.lines.some((l) => !l.check)} onClick={() => run(validateReception, { id: r.id })}>
                         Valider l&apos;entrée en stock
                       </Button>
                       <Button size="xs" variant="ghost" className="text-error-600" onClick={() => setReject(r)}>
@@ -87,6 +107,7 @@ export default function ReceptionsPage() {
                       <th className="py-1.5 text-end">Reçu</th>
                       <th className="py-1.5 text-end">Écart</th>
                       <th className="py-1.5 ps-3 text-start">Lot / péremption</th>
+                      <th className="py-1.5 ps-3 text-start">Contrôle</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -99,6 +120,22 @@ export default function ReceptionsPage() {
                           <td className="py-1.5 text-end font-medium">{l.qtyReceived}</td>
                           <td className={cn("py-1.5 text-end font-medium", gap < 0 ? "text-warning-600" : gap > 0 ? "text-tertiary-600" : "text-gray-400")}>{gap === 0 ? "—" : gap > 0 ? `+${gap}` : gap}</td>
                           <td className="py-1.5 ps-3 text-theme-xs text-gray-500">{l.lotRef || "—"} · {formatDate(l.expiryDate)}</td>
+                          <td className="py-1.5 ps-3">
+                            {l.check ? (
+                              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", l.check.status === "conforme" ? "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300" : l.check.status === "ecart" ? "bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300" : "bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-300")} title={l.check.note}>
+                                {l.check.status === "conforme" ? "Conforme" : l.check.status === "ecart" ? "Écart" : "Refusé"}
+                                {l.check.note ? ` · ${l.check.note}` : ""}
+                              </span>
+                            ) : r.status === "proposee" && canValidate ? (
+                              <span className="flex flex-wrap gap-1">
+                                <Button size="xs" variant="soft" onClick={() => run(checkReceptionLine, { id: r.id, lineId: l.id, status: "conforme" })}>Conforme</Button>
+                                <Button size="xs" variant="ghost" onClick={() => { setLineCheck({ rec: r, lineId: l.id, status: "ecart" }); setLcQty(l.qtyReceived); setLcNote(""); }}>Écart</Button>
+                                <Button size="xs" variant="ghost" className="text-error-600" onClick={() => { setLineCheck({ rec: r, lineId: l.id, status: "refuse" }); setLcNote(""); }}>Refuser</Button>
+                              </span>
+                            ) : (
+                              <span className="text-theme-xs text-gray-400">—</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -161,6 +198,55 @@ export default function ReceptionsPage() {
           )}
         </div>
       </AppModal>
+      {lineCheck && (
+        <AppModal
+          isOpen
+          onClose={() => setLineCheck(null)}
+          size="sm"
+          title={lineCheck.status === "ecart" ? "Écart sur la ligne" : "Refuser la ligne"}
+          description={productName(db, lineCheck.rec.lines.find((x) => x.id === lineCheck.lineId)?.productId)}
+          footer={
+            <>
+              <Button size="sm" variant="outline" onClick={() => setLineCheck(null)}>Annuler</Button>
+              <Button size="sm" variant={lineCheck.status === "refuse" ? "danger" : "primary"} disabled={!lcNote.trim()} onClick={() => run(checkReceptionLine, { id: lineCheck.rec.id, lineId: lineCheck.lineId, status: lineCheck.status, qtyReceived: lcQty, note: lcNote }).ok && setLineCheck(null)}>Enregistrer</Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            {lineCheck.status === "ecart" && <TextField label="Quantité réellement reçue" type="number" value={String(lcQty)} onChange={(x) => setLcQty(Number(x))} />}
+            <TextAreaField label={lineCheck.status === "ecart" ? "Nature de l'écart" : "Motif du refus"} required value={lcNote} onChange={setLcNote} rows={2} placeholder={lineCheck.status === "refuse" ? "Ex. : flacons cassés, péremption trop courte, chaîne du froid rompue" : "Ex. : 2 boîtes manquantes"} />
+          </div>
+        </AppModal>
+      )}
+      <PrintSheet
+        open={missingOpen}
+        onClose={() => setMissingOpen(false)}
+        title="Commandes non reçues"
+        toolbar={
+          <>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Fournisseur</span>
+            <select aria-label="Fournisseur" value={missingSup} onChange={(e) => setMissingSup(e.target.value)} className="h-9 flex-1 rounded-lg border border-gray-300 bg-transparent px-2 text-sm dark:border-gray-700 dark:text-white/90">
+              <option value="">Tous</option>
+              {opts.suppliers.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </>
+        }
+        filters={[missingSup ? supplierName(db, missingSup) : "Tous les fournisseurs", "commandes envoyées ou partiellement reçues"]}
+        summary={<p><strong>{missing.length}</strong> ligne(s) en attente · valeur restante : <strong>{missing.reduce((s, x) => s + (x.l.qtyOrdered - x.received) * x.l.unitPrice, 0).toLocaleString("fr-FR")} F CFA</strong></p>}
+        rows={missing}
+        rowKey={(x) => x.l.id}
+        emptyText="Toutes les commandes envoyées ont été reçues."
+        columns={[
+          { header: "Commande", render: (x) => x.po.code },
+          { header: "Fournisseur", render: (x) => supplierName(db, x.po.supplierId) },
+          { header: "Article", render: (x) => productName(db, x.l.productId) },
+          { header: "Commandé", align: "end", render: (x) => x.l.qtyOrdered },
+          { header: "Reçu", align: "end", render: (x) => x.received },
+          { header: "Reste", align: "end", render: (x) => x.l.qtyOrdered - x.received },
+          { header: "Prévu le", render: (x) => formatDate(x.po.expectedDate) },
+          { header: "Retard", align: "end", render: (x) => (x.po.expectedDate < today ? `${daysBetween(x.po.expectedDate, today)} j` : "—") },
+        ]}
+      />
       <ConfirmDialog isOpen={!!reject} onClose={() => setReject(null)} title="Rejeter la réception" message="Aucun mouvement de stock ne sera créé." reasonLabel="Motif" onConfirm={(reason) => (reject ? run(rejectReception, { id: reject.id, reason }).ok : false)} />
     </div>
   );

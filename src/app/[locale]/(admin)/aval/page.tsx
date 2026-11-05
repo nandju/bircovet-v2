@@ -1,0 +1,10 @@
+import ApprovalsPage from "@/components/approvals/ApprovalsPage";
+import { initPage, type LocaleParams } from "@/i18n/page";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Avals du directeur" };
+
+export default async function Page({ params }: LocaleParams) {
+  await initPage(params);
+  return <ApprovalsPage />;
+}

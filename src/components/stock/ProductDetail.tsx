@@ -11,6 +11,7 @@ import { useModal } from "@/hooks/useModal";
 import { PencilIcon } from "@/icons";
 import { isLowStock, productStock, supplierName } from "@/lib/calc";
 import { formatXOF } from "@/lib/format";
+import ProductPharmaCard from "@/components/pharma/ProductPharmaCard";
 import LotsTable from "./LotsTable";
 import MovementsTable from "./MovementsTable";
 import { ProductFormModal } from "./StockModals";
@@ -77,6 +78,9 @@ export default function ProductDetail({ id }: { id: string }) {
           ))}
           <p className="border-t border-gray-100 pt-2 text-theme-xs text-gray-500 dark:border-gray-800">Exclut les lots périmés, réservés ou en quarantaine.</p>
         </ComponentCard>
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        <ProductPharmaCard product={p} />
       </div>
       <ComponentCard title="Lots">
         <LotsTable rows={lots} showProduct={false} />
