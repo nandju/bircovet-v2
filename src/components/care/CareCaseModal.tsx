@@ -65,7 +65,7 @@ export default function CareCaseModal({ prefill, onClose, onSaved }: { prefill: 
     const s0 = prefill.species ?? p?.species ?? species[0] ?? "Bovin";
     const sc = prefill.scope ?? "animal";
     const rs = prefill.reason ?? (p ? "pathologie" : "appel");
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- formulaire réinitialisé à l'ouverture
+     
     setScope(sc);
     setReason(rs);
     setSp(s0);

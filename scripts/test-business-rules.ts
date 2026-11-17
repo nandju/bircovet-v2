@@ -24,7 +24,7 @@ import { createSession, registerParticipant } from "../src/lib/services/training
 import { synchronize } from "../src/lib/services/syncService";
 import { setUserActive } from "../src/lib/services/adminService";
 import { askAssistant } from "../src/lib/services/aiService";
-import { refreshDerived } from "../src/lib/services/core";
+import { executeService, refreshDerived, type Service } from "../src/lib/services/core";
 import { createTreatment, logDay, logDose } from "../src/lib/services/treatmentsService";
 import { courseStats } from "../src/lib/treatments";
 import { decideLeave, requestLeave } from "../src/lib/services/staffService";
@@ -93,7 +93,8 @@ db = refreshDerived(db, today);
 let passed = 0;
 let failed = 0;
 
-const ctx = (userId: string, offline = false): ActionCtx => ({ user: [...db.users, ...(db.platform ? [db.platform.editor] : [])].find((u) => u.id === userId)!, establishmentId: "est-abj", offline, now });
+let opSeq = 0;
+const ctx = (userId: string, offline = false): ActionCtx => ({ user: [...db.users, ...(db.platform ? [db.platform.editor] : [])].find((u) => u.id === userId)!, establishmentId: "est-abj", offline, now, opKey: `t${++opSeq}` });
 function ok<T>(r: ServiceResult<T>, label: string): T | undefined {
   if (!r.ok) throw new Error(`${label} a échoué : ${r.error}`);
   db = refreshDerived(r.db, today);
@@ -873,6 +874,23 @@ test("Ordonnance de plusieurs médicaments : un numéro, validation groupée, or
   const sid = ok(createPrescriptionOrder(db, ctx(VET), { patientId: pt.id, vetId: VET, lines: [line(a.id, "1 cp")], sale: { invoiceId: "inv-test" } }), "après vente")!;
   const s1 = db.prescriptions.find((p) => p.orderId === sid)!;
   check(s1.status === "delivree" && db.movements.length === mv0, "déjà remis, aucun nouveau mouvement de stock");
+});
+
+test("Déterminisme : même opKey + même now ⇒ résultats strictement identiques", () => {
+  const sameCtx = (userId: string): ActionCtx => ({ ...ctx(userId), opKey: "op-fixe-determinisme" });
+  const twice = <I, T>(svc: Service<I, T>, userId: string, input: I, label: string) => {
+    const r1 = executeService(svc, db, sameCtx(userId), input);
+    const r2 = executeService(svc, db, sameCtx(userId), input);
+    check(r1.ok && r2.ok, `${label} doit réussir`);
+    check(JSON.stringify(r1) === JSON.stringify(r2), `${label} non déterministe (ids ou résultats différents)`);
+  };
+  twice(createClient, ACC, { type: "particulier" as const, name: "Client Déterminisme", phoneCode: "+225", phone: "07 11 22 33 44", email: "det@t.demo", address: "x", city: "Abidjan", contacts: [], commPrefs: { sms: true, whatsapp: false, email: false, call: false }, segment: "standard" as const, payerName: "Client Déterminisme", payerTaxId: "" }, "createClient");
+  const prod = db.products.find((p) => p.status === "actif" && p.salePrice > 0 && productStock(db, p.id, "est-abj", today) >= 2)!;
+  const cash = db.accounts.find((a) => a.type === "caisse" && a.establishmentId === "est-abj")!;
+  twice(counterSale, ACC, { lines: [{ productId: prod.id, qty: 1, unitPrice: prod.salePrice, discountPct: 0 }], payment: { method: "especes" as const, accountId: cash.id, amount: prod.salePrice }, walkIn: { name: "M. Déterminisme", phone: "0101010101" }, opKey: "t-det-cs" }, "counterSale");
+  const pt = db.patients.find((p) => p.species === "Chien" && p.vitalStatus === "vivant")!;
+  const med = db.products.find((p) => p.status === "actif" && p.category === "medicament")!;
+  twice(createPrescriptionOrder, VET, { patientId: pt.id, vetId: VET, lines: [{ productId: med.id, form: "", route: "PO", quantity: 1, dose: "1 cp", frequency: "2 fois par jour", duration: "7 jours", instructions: "" }] }, "createPrescriptionOrder");
 });
 
 console.log(`\n${passed} test(s) réussi(s), ${failed} échec(s).\n`);

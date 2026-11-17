@@ -51,7 +51,7 @@ export default function AgendaView() {
   useEffect(() => {
     try {
       const v = localStorage.getItem("cliva.agenda.cat");
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- préférence locale lue après montage (pas de rendu serveur divergent)
+       
       if (v === "compagnie" || v === "rente" || v === "all") setCat(v);
     } catch {
       /* stockage indisponible */

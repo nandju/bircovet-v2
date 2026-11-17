@@ -34,7 +34,7 @@ export default function AlertsSettingsPage() {
   const [rules, setRules] = useState<AlertRule[]>(() => rulesOf(db));
   const [perm, setPerm] = useState<string>("indisponible");
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture de l'état du navigateur après montage
+     
     setPerm(pushSupported() ? Notification.permission : "indisponible");
   }, []);
   const set = (key: string, patch: Partial<AlertRule>) => setRules((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));

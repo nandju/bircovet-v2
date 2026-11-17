@@ -27,7 +27,7 @@ function read(): DisplayPrefs {
 export function useDisplayPrefs(): [DisplayPrefs, (p: DisplayPrefs) => void] {
   const [pref, setPref] = useState<DisplayPrefs>(DEFAULT_DISPLAY);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture des préférences enregistrées sur l'appareil
+     
     setPref(read());
     const on = () => setPref(read());
     window.addEventListener(EVT, on);

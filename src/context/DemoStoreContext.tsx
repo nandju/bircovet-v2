@@ -32,7 +32,7 @@ import { migrateToV23 } from "@/lib/migrateV23";
 import { visibleTo } from "@/lib/notifications";
 import { migrateToV7 } from "@/lib/rural";
 import { SCHEMA_VERSION, createSeed } from "@/lib/seed";
-import { refreshDerived, type Service } from "@/lib/services/core";
+import { executeService, refreshDerived, type Service } from "@/lib/services/core";
 import type { ActionCtx, DemoDB, Establishment, ServiceResult, SessionState, User } from "@/lib/types";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
@@ -201,8 +201,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         return r;
       }
       const now = nowIso();
-      const ctx: ActionCtx = { user, establishmentId: establishment.id, offline: session.offline, now };
-      const r = svc(current, ctx, input);
+      // opKey : clé unique de l'opération (idempotence + ids déterministes, cf. executeService).
+      const opKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `op-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      const ctx: ActionCtx = { user, establishmentId: establishment.id, offline: session.offline, now, opKey };
+      const r = executeService(svc, current, ctx, input);
       if (r.ok) {
         persist(refreshDerived(r.db, now.slice(0, 10)));
         if (!opts?.silent && r.message) toast.show("success", r.message);

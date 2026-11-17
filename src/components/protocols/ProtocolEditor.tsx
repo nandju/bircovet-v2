@@ -25,7 +25,7 @@ export default function ProtocolEditor({ value, onClose }: { value: ProtocolInpu
   const [links, setLinks] = useState("");
   useEffect(() => {
     if (!value) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialisation à l'ouverture
+     
     setV(value);
     setSteps(value.steps.map((s) => `${s.critical ? "! " : ""}${s.text}`).join("\n"));
     setMats(value.materials.join("\n"));

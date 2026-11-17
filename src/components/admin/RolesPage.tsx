@@ -25,7 +25,7 @@ export default function RolesPage() {
   const [role, setRole] = useState<RoleId>("vet");
   const [lab, setLab] = useState({ label: "", description: "" });
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- formulaire du rôle sélectionné
+     
     setLab({ label: roleLabel(role), description: roleDescription(role) });
   }, [role, db.settings.roleLabels]);
   const toggle = (m: ModuleId, a: PermAction) => {

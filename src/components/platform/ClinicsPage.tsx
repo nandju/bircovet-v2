@@ -23,7 +23,7 @@ export default function ClinicsPage() {
   const [q, setQ] = useState("");
   const [f, setF] = useState({ country: "", language: "", status: "", maint: "" });
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- ouverture depuis un lien
+     
     if (param) setOpen(param);
   }, [param]);
   if (!p) return null;

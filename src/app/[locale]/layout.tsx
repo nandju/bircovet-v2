@@ -12,7 +12,6 @@ import { setRequestLocale } from "next-intl/server";
 import { DM_Sans, Inter, Outfit } from "next/font/google";
 import { notFound } from "next/navigation";
 import "simplebar-react/dist/simplebar.min.css";
-import "swiper/css/bundle";
 import "../globals.css";
 
 const outfit = Outfit({

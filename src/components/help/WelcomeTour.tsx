@@ -23,7 +23,7 @@ export default function WelcomeTour() {
   useEffect(() => {
     if (!key) return;
     try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- affichage unique, mémorisé sur l'appareil
+       
       if (!localStorage.getItem(key)) setOpen(true);
     } catch {
       /* stockage indisponible : pas d'accueil */

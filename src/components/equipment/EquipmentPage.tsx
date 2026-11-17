@@ -23,7 +23,7 @@ function Editor({ value, onClose }: { value: EquipmentInput | null; onClose: () 
   const { run } = useDemo();
   const [v, setV] = useState<EquipmentInput>(EMPTY);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le formulaire à l'ouverture
+     
     if (value) setV(value);
   }, [value]);
   if (!value) return null;

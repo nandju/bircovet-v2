@@ -27,7 +27,7 @@ function Editor({ value, onClose }: { value: CampaignInput | null; onClose: () =
   const [v, setV] = useState<CampaignInput>(EMPTY);
   const [err, setErr] = useState("");
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le formulaire à l'ouverture
+     
     if (value) setV(structuredClone(value));
   }, [value]);
   if (!value) return null;

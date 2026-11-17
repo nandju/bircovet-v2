@@ -2105,6 +2105,8 @@ export interface ActionCtx {
   establishmentId: ID;
   offline: boolean;
   now: ISODate;
+  /** Clé unique de l'opération : idempotence + identifiants déterministes (mêmes ids côté client et serveur). */
+  opKey: string;
 }
 
 export type ServiceResult<T = undefined> =

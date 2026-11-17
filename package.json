@@ -10,10 +10,7 @@
     "test:rules": "tsc scripts/test-business-rules.ts --outDir scripts/tmp --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict --resolveJsonModule && node scripts/tmp/scripts/test-business-rules.js"
   },
   "dependencies": {
-    "@fullcalendar/react": "^7.1.0",
     "@google/genai": "^2.30.0",
-    "@react-jvectormap/core": "^1.0.4",
-    "@react-jvectormap/world": "^1.1.2",
     "@tailwindcss/postcss": "^4.3.3",
     "apexcharts": "^7.1.0",
     "clsx": "^2.1.1",
@@ -22,12 +19,8 @@
     "next-intl": "^4.14.2",
     "react": "^19.2.8",
     "react-apexcharts": "^2.1.1",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.2.8",
-    "react-dropzone": "^20.1.1",
     "simplebar-react": "^3.3.2",
-    "swiper": "^14.2.0",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

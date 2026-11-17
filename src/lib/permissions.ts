@@ -195,6 +195,26 @@ export function can(role: RoleId | undefined, module: ModuleId, action: PermActi
   return letters(role, module).includes(LETTER[action]);
 }
 
+/**
+ * Version PURE de can() : mêmes règles (cloison éditeur/clinique, admin DG
+ * inviolable, réglages du DG par-dessus la matrice), mais sans AUCUN état de
+ * module — le serveur l'appelle avec db.settings.permissions.
+ */
+export function canWith(
+  settingsPermissions: Partial<Record<RoleId, Partial<Record<string, string>>>> | undefined,
+  roleId: RoleId | undefined,
+  module: ModuleId,
+  action: PermAction = "read",
+): boolean {
+  if (!roleId) return false;
+  let l: string;
+  if (module === "plateforme") l = roleId === "editeur" ? ALL : "";
+  else if (roleId === "editeur") l = "";
+  else if (roleId === "dg" && module === "admin") l = ALL;
+  else l = settingsPermissions?.[roleId]?.[module] ?? MATRIX[roleId][module] ?? "";
+  return l.includes(LETTER[action]);
+}
+
 export const ACTION_LETTER = LETTER;
 
 export function rolePermissions(role: RoleId): Perms {

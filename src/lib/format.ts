@@ -77,7 +77,18 @@ export function ageFrom(birth: string, now: string = isoDay()): string {
   return `${y} an${y > 1 ? "s" : ""}`;
 }
 
+/**
+ * Générateur d'identifiants déterministe, installé par executeService (core.ts)
+ * pendant l'exécution d'un service, à partir de ctx.opKey. Hors service,
+ * uid() garde son comportement aléatoire historique.
+ */
+let uidFactory: ((prefix: string) => string) | null = null;
+export function setUidFactory(f: ((prefix: string) => string) | null) {
+  uidFactory = f;
+}
+
 export function uid(prefix = "id"): string {
+  if (uidFactory) return uidFactory(prefix);
   const rnd = Math.random().toString(36).slice(2, 8);
   return `${prefix}-${Date.now().toString(36)}${rnd}`;
 }

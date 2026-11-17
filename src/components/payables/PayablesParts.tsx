@@ -31,7 +31,7 @@ export function PayBillModal({ state, suggested, onClose }: { state: BillState |
   const [v, setV] = useState({ amount: 0, accountId: "", method: "especes" as PaymentMethod, reference: "" });
   useEffect(() => {
     if (!state) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- pré-remplissage à l'ouverture
+     
     setV({ amount: Math.round(suggested ?? (state.bill.payAsSold && state.bill.kind !== "prestation" && !state.overdue ? Math.min(state.payableNow, state.remaining) || state.remaining : state.remaining)), accountId: db.accounts[0]?.id ?? "", method: "especes", reference: "" });
   }, [state, suggested, db.accounts]);
   if (!state) return null;
@@ -67,7 +67,7 @@ export function BillFormModal({ isOpen, onClose, supplierId }: { isOpen: boolean
     if (!isOpen) return;
     const b = blank();
     const s = db.suppliers.find((x) => x.id === b.supplierId);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialisation à l'ouverture
+     
     setV({ ...b, kind: s?.kind === "fournisseur" ? "achat_stock" : "prestation", dueDate: dueFromTerms(today, s?.paymentTerms) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);

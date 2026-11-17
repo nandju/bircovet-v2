@@ -6,7 +6,7 @@
 import { clientName, docTotal, invoiceBalance, patientName, userName } from "../calc";
 import { formatDate, formatXOF, normalize, uid } from "../format";
 import type { AIMessage, DemoDB } from "../types";
-import { fail, must, produce, type Service } from "./core";
+import { fail, must, produce, today, type Service } from "./core";
 import { duplicateGroups } from "./clientsService";
 
 export const AI_DISCLAIMER = "Brouillon à vérifier";
@@ -37,7 +37,7 @@ interface AIAnswer {
   references: { label: string; href?: string }[];
 }
 
-export function generateAIResponse(db: DemoDB, prompt: string): AIAnswer {
+export function generateAIResponse(db: DemoDB, prompt: string, todayIso?: string): AIAnswer {
   const p = normalize(prompt);
   for (const [re, what] of FORBIDDEN)
     if (re.test(p))
@@ -48,7 +48,7 @@ export function generateAIResponse(db: DemoDB, prompt: string): AIAnswer {
       };
 
   if (/anomal|incoheren|verifi/.test(p)) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso ?? new Date().toISOString().slice(0, 10);
     const late = db.invoices.filter((i) => i.status === "en_retard");
     const pendingRec = db.receptions.filter((r) => r.status === "proposee");
     const toValidate = db.consultations.filter((c) => c.status === "a_valider");
@@ -156,7 +156,7 @@ export const askAssistant: Service<{ conversationId?: string; prompt: string }, 
       conv = { id: uid("ai"), title: prompt.slice(0, 60), date: ctx.now, messages: [] };
       d.aiConversations.unshift(conv);
     }
-    const ans = generateAIResponse(d, prompt);
+    const ans = generateAIResponse(d, prompt, today(ctx));
     const user: AIMessage = { id: uid("aim"), role: "user", content: prompt, date: ctx.now };
     const bot: AIMessage = { id: uid("aim"), role: "assistant", content: ans.content, date: ctx.now, scenario: ans.scenario, references: ans.references, draftStatus: ans.scenario === "refus" || ans.scenario === "aide" ? undefined : "brouillon" };
     conv.messages.push(user, bot);

@@ -17,7 +17,7 @@ export default function ScaleSettingsModal({ isOpen, onClose }: { isOpen: boolea
   const { db, run, today } = useDemo();
   const [v, setV] = useState<FarmScaleSettings>(() => scaleSettings(db));
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialisation à l'ouverture
+     
     if (isOpen) setV(scaleSettings(db));
   }, [isOpen, db]);
   const preview = { petit: 0, moyen: 0, gros: 0 };

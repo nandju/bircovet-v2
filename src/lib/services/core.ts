@@ -5,10 +5,27 @@
  * en conservant les mêmes signatures côté composants.
  */
 import { deriveInvoiceStatus } from "../calc";
-import { uid } from "../format";
+import { setUidFactory, uid } from "../format";
 import type { ActionCtx, AppNotification, AuditEntry, DemoDB, RoleId, ServiceResult } from "../types";
 
 export type Service<I, T = undefined> = (db: DemoDB, ctx: ActionCtx, input: I) => ServiceResult<T>;
+
+/**
+ * Exécute un service avec des identifiants DÉTERMINISTES dérivés de ctx.opKey :
+ * même opKey + même now + même input ⇒ mêmes ids, donc même résultat côté
+ * navigateur (exécution optimiste) et côté serveur (exécution de référence).
+ * Format : `${prefix}-${opKey court}-${compteur}`.
+ */
+export function executeService<I, T = undefined>(svc: Service<I, T>, db: DemoDB, ctx: ActionCtx, input: I): ServiceResult<T> {
+  const short = ctx.opKey.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "op";
+  let counter = 0;
+  setUidFactory((prefix) => `${prefix}-${short}-${++counter}`);
+  try {
+    return svc(db, ctx, input);
+  } finally {
+    setUidFactory(null);
+  }
+}
 
 export class ServiceError extends Error {}
 

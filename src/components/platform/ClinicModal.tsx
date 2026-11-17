@@ -13,7 +13,7 @@ export default function ClinicModal({ value, onClose }: { value: ClinicInput | n
   const { run } = useDemo();
   const [v, setV] = useState<ClinicInput | null>(null);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le formulaire à l'ouverture
+     
     setV(value);
   }, [value]);
   if (!value || !v) return null;

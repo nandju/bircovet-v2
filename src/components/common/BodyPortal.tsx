@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 export default function BodyPortal({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- le portail n'existe qu'après le montage
+     
     setReady(true);
   }, []);
   return ready ? createPortal(children, document.body) : null;

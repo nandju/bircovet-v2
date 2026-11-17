@@ -17,7 +17,7 @@ export default function ProjectModal({ value, onClose, onSaved }: { value: Proje
   const opts = useOptions();
   const [v, setV] = useState<ProjectInput>(EMPTY_PROJECT);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le formulaire à l'ouverture
+     
     if (value) setV(value);
   }, [value]);
   if (!value) return null;
