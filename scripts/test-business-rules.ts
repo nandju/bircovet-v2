@@ -84,6 +84,7 @@ import { careDue } from "../src/lib/care";
 import { assignTeamTask, completeTeamTask, reviewTeamTask } from "../src/lib/services/teamTasksService";
 import { addCashBoxEntry, assignToCashBox, boxTotal, saveCashBox } from "../src/lib/services/cashBoxService";
 import { vitalAlerts } from "../src/lib/vitals";
+import { redactForRole } from "../src/lib/redact";
 import type { ActionCtx, DemoDB, ServiceResult } from "../src/lib/types";
 
 let db: DemoDB = createSeed(new Date());
@@ -891,6 +892,37 @@ test("Déterminisme : même opKey + même now ⇒ résultats strictement identiq
   const pt = db.patients.find((p) => p.species === "Chien" && p.vitalStatus === "vivant")!;
   const med = db.products.find((p) => p.status === "actif" && p.category === "medicament")!;
   twice(createPrescriptionOrder, VET, { patientId: pt.id, vetId: VET, lines: [{ productId: med.id, form: "", route: "PO", quantity: 1, dose: "1 cp", frequency: "2 fois par jour", duration: "7 jours", instructions: "" }] }, "createPrescriptionOrder");
+});
+
+test("redactForRole : platform/demoPassword toujours retirés, salaires selon le rôle", () => {
+  const dg = db.users.find((u) => u.roleId === "dg")!;
+  const asst = db.users.find((u) => u.roleId === "assistant")!;
+  const cpt = db.users.find((u) => u.roleId === "comptable")!;
+
+  // DG : tout est conservé (sauf platform + demoPassword).
+  const forDg = redactForRole(db, dg);
+  check(forDg.platform === undefined, "platform doit être retiré pour le DG");
+  check(forDg.salaries.length === db.salaries.length, "le DG garde les salaires");
+  check(JSON.stringify(forDg).includes("demoPassword") === false, "aucun demoPassword ne doit rester");
+  check(db.platform !== undefined, "l'original ne doit pas être muté");
+
+  // Assistant : module « salaires » absent de sa matrice → collections retirées.
+  const forAsst = redactForRole(db, asst) as Partial<DemoDB>;
+  check(forAsst.salaries === undefined, "l'assistant ne doit pas recevoir les salaires");
+  check(forAsst.budgets === undefined, "l'assistant ne doit pas recevoir les budgets");
+  check(forAsst.platform === undefined, "platform retiré pour l'assistant");
+  check(forAsst.clients?.length === db.clients.length, "l'assistant garde ses autres données");
+
+  // Comptable : pas de module « salaires » par défaut → retiré…
+  check((redactForRole(db, cpt) as Partial<DemoDB>).salaries === undefined, "comptable sans droit → salaires retirés");
+  // …mais si le DG ouvre le module dans les réglages → autorisé.
+  const dbOpen: DemoDB = { ...db, settings: { ...db.settings, permissions: { comptable: { salaires: "r" } } } };
+  check(redactForRole(dbOpen, cpt).salaries !== undefined, "comptable autorisé → salaires conservés");
+
+  // Confrère : uniquement les dossiers partagés.
+  const conf = db.users.find((u) => u.roleId === "confrere")!;
+  const forConf = redactForRole(db, conf);
+  check(forConf.patients.every((p) => (conf.sharedPatientIds ?? []).includes(p.id)), "le confrère ne voit que les dossiers partagés");
 });
 
 console.log(`\n${passed} test(s) réussi(s), ${failed} échec(s).\n`);
