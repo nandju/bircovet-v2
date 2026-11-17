@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "_template-archive/**",
     "scripts/tmp/**",
+    // Projet séparé avec son propre outillage (API NestJS + code partagé).
+    "apps/**",
+    "packages/**",
   ]),
   {
     rules: {

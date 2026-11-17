@@ -1,0 +1,11 @@
+{
+  "name": "@cliva/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code metier partage de Cliva (types, seed, regles de gestion) — re-exporte src/lib en attendant le deplacement physique des fichiers.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  }
+}

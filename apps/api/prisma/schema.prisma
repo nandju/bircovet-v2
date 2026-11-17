@@ -1,0 +1,109 @@
+// Schéma de la base PostgreSQL/Neon de Cliva (Prisma 7).
+// Conventions : noms de tables en snake_case via @@map, colonnes idem via @map.
+// Les URL de connexion ne sont PAS ici : elles sont dans prisma.config.ts
+// (règle propre à Prisma 7 — la CLI lit DIRECT_URL, l'app lit DATABASE_URL).
+
+generator client {
+  provider = "prisma-client"
+  // Client généré en TypeScript dans src/generated/prisma (non commité).
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Statut d'une opération métier enregistrée côté serveur.
+enum OperationStatus {
+  ok
+  refused
+}
+
+// Une clinique cliente de la plateforme.
+model Clinic {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  country       String
+  licenseStatus String       @map("license_status")
+  paidUntil     DateTime?    @map("paid_until") @db.Date
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  accounts      Account[]
+  state         ClinicState?
+  operations    Operation[]
+
+  @@map("clinics")
+}
+
+// Compte de connexion d'un utilisateur d'une clinique.
+// `userId` = l'identifiant du User tel qu'il existe dans ClinicState.data
+// (les deux mondes — SQL pour l'auth, JSON pour le métier — se rejoignent ici).
+model Account {
+  id                 String         @id @default(uuid()) @db.Uuid
+  clinicId           String         @map("clinic_id") @db.Uuid
+  userId             String         @map("user_id")
+  email              String         @unique
+  passwordHash       String         @map("password_hash")
+  roleId             String         @map("role_id")
+  active             Boolean        @default(true)
+  failedLogins       Int            @default(0) @map("failed_logins")
+  lockedUntil        DateTime?      @map("locked_until")
+  mustChangePassword Boolean        @default(false) @map("must_change_password")
+  totpSecret         String?        @map("totp_secret")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  clinic             Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  refreshTokens      RefreshToken[]
+
+  // Un utilisateur donné n'a qu'un compte par clinique (utile pour le seed idempotent).
+  @@unique([clinicId, userId])
+  @@map("accounts")
+}
+
+// L'état métier complet d'une clinique (= l'objet DemoDB du front, en JSON).
+model ClinicState {
+  clinicId      String   @id @map("clinic_id") @db.Uuid
+  version       Int      @default(0)
+  schemaVersion Int      @map("schema_version")
+  data          Json
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@map("clinic_states")
+}
+
+// Journal idempotent des opérations exécutées pour une clinique :
+// l'unicité (clinicId, opKey) garantit qu'un envoi réseau répété
+// n'exécute l'opération qu'une seule fois.
+model Operation {
+  id            String          @id @default(uuid()) @db.Uuid
+  clinicId      String          @map("clinic_id") @db.Uuid
+  opKey         String          @map("op_key")
+  name          String
+  input         Json
+  userId        String          @map("user_id")
+  clientNow     DateTime        @map("client_now")
+  serverAt      DateTime        @default(now()) @map("server_at")
+  status        OperationStatus
+  error         String?
+  resultVersion Int?            @map("result_version")
+
+  clinic        Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, opKey])
+  @@map("operations")
+}
+
+// Jeton de rafraîchissement (authentification) : on ne stocke que le haché.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}

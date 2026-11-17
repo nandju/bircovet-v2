@@ -1,0 +1,4 @@
+
+# Fichiers générés par Prisma et le build de l'API
+apps/api/dist/
+apps/api/src/generated/

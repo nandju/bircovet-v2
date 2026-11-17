@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API NestJS de Cliva (PostgreSQL/Neon via Prisma).",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "generate": "prisma generate",
+    "seed": "tsx prisma/seed.ts",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@cliva/core": "workspace:*",
+    "@nestjs/common": "^11.1.9",
+    "@nestjs/core": "^11.1.9",
+    "@nestjs/platform-express": "^11.1.9",
+    "@node-rs/argon2": "^2.0.7",
+    "@prisma/adapter-neon": "^7.10.1",
+    "@prisma/client": "7.10.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "helmet": "^8.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^20.19.25",
+    "dotenv": "^17.2.3",
+    "prisma": "^7.10.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

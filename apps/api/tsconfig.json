@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    // Node 22 : cible moderne suffisante pour l'API.
+    "target": "ES2022",
+    // "dom" est nécessaire au typecheck : le seed partagé importe branding.ts,
+    // qui manipule `document` dans des fonctions jamais exécutées côté serveur.
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // Indispensable pour NestJS : les décorateurs + les métadonnées de types
+    // permettent l'injection de dépendances par constructeur.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "prisma.config.ts", "tsup.config.ts"]
+}

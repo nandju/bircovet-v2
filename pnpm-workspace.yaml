@@ -1,0 +1,12 @@
+# Espace de travail pnpm : le front (racine), l'API (apps/api) et le code
+# métier partagé (packages/core) sont des paquets du même monorepo.
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Scripts d'installation autorisés (pnpm les bloque par défaut) :
+# téléchargement des binaires Prisma et esbuild, nécessaires à l'API.
+onlyBuiltDependencies:
+  - "@prisma/engines"
+  - esbuild
+  - prisma

@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "_template-archive",
-    "scripts/tmp"
+    "scripts/tmp",
+    "apps",
+    "packages"
   ]
 }
