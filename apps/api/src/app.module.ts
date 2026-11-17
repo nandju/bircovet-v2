@@ -5,12 +5,13 @@ import { Module } from "@nestjs/common";
 import { SCHEMA_VERSION } from "@cliva/core";
 import { PrismaModule } from "./prisma/prisma.module";
 import { HealthModule } from "./health/health.module";
+import { AuthModule } from "./auth/auth.module";
 
 // Référencé ici pour que le bundler inclue réellement @cliva/core
 // et que l'import soit testé au démarrage (affiché dans les logs).
 export const CLIVA_SCHEMA_VERSION = SCHEMA_VERSION;
 
 @Module({
-  imports: [PrismaModule, HealthModule],
+  imports: [PrismaModule, HealthModule, AuthModule],
 })
 export class AppModule {}

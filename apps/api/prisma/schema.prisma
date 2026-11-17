@@ -7,6 +7,9 @@ generator client {
   provider = "prisma-client"
   // Client généré en TypeScript dans src/generated/prisma (non commité).
   output   = "../src/generated/prisma"
+  // CommonJS : nécessaire pour que Jest (ts-jest en mode CJS) puisse
+  // exécuter le client généré pendant les tests e2e.
+  moduleFormat = "cjs"
 }
 
 datasource db {
