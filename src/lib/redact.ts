@@ -42,13 +42,16 @@ export function redactForRole(db: DemoDB, user: User): DemoDB {
   // matrice de permissions (modules rapports/finances).
   const canSeeConfidential = canWith(db.settings?.permissions, user.roleId, "salaires", "read");
   if (!canSeeConfidential) {
-    const { salaries: _s, budgets: _b, ...rest } = out;
-    out = rest as DemoDB;
+    const clone: Partial<DemoDB> = { ...out };
+    delete clone.salaries;
+    delete clone.budgets;
+    out = clone as DemoDB;
   }
 
   // Console éditeur : jamais envoyée à un compte de clinique.
-  const { platform: _p, ...rest } = out;
-  out = rest as DemoDB;
+  const clone: Partial<DemoDB> = { ...out };
+  delete clone.platform;
+  out = clone as DemoDB;
 
   // Confrère référent : uniquement les dossiers partagés avec lui.
   if (user.roleId === "confrere") {

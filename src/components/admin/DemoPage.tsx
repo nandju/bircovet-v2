@@ -20,7 +20,7 @@ import { DEMO_PASSWORD } from "@/lib/seed/base";
 import { useState } from "react";
 
 export default function DemoPage() {
-  const { db, session, run, switchUser, setOffline, resetDemo, logout, user } = useDemo();
+  const { db, session, run, switchUser, setOffline, resetDemo, logout, user, apiMode } = useDemo();
   const router = useRouter();
   const [tab, setTab] = useState("profils");
   const [confirm, setConfirm] = useState<null | "logout" | "reset" | "backup" | "restore" | "clear">(null);
@@ -80,14 +80,15 @@ export default function DemoPage() {
                 {session.userId === u.id ? (
                   <Button size="sm" variant="secondary" className="mt-3 w-full" startIcon={<CheckLineIcon />} disabled>Profil actif</Button>
                 ) : (
-                  <Button size="sm" variant="outline" className="mt-3 w-full" disabled={!u.active} onClick={() => { switchUser(u.id); router.push("/"); }}>Se connecter en tant que…</Button>
+                  // Mode connecté (API) : pas de bascule de profil sans mot de passe.
+                  !apiMode && <Button size="sm" variant="outline" className="mt-3 w-full" disabled={!u.active} onClick={() => { switchUser(u.id); router.push("/"); }}>Se connecter en tant que…</Button>
                 )}
               </div>
             ))}
           </div>
-          <DemoNotice>
+          {!apiMode && <DemoNotice>
             Comptes de démonstration — mot de passe fictif commun : <strong>{DEMO_PASSWORD}</strong>. Exemples : <strong>dg@cliva.demo</strong>, <strong>accueil@cliva.demo</strong>, <strong>vet@cliva.demo</strong>, <strong>comptable@cliva.demo</strong>.
-          </DemoNotice>
+          </DemoNotice>}
           <Button variant="outline" onClick={() => setConfirm("logout")}>Se déconnecter</Button>
         </>
       )}
@@ -109,7 +110,7 @@ export default function DemoPage() {
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => setConfirm("backup")}>Exporter la sauvegarde (JSON)</Button>
               <Button size="sm" variant="outline" startIcon={<UploadIcon />} onClick={() => { setRestoreText(""); setConfirm("restore"); }}>Importer une sauvegarde</Button>
-              <Button size="sm" variant="danger" startIcon={<TrashBinIcon />} onClick={() => setConfirm("reset")}>Réinitialiser l&apos;environnement de démonstration</Button>
+              {!apiMode && <Button size="sm" variant="danger" startIcon={<TrashBinIcon />} onClick={() => setConfirm("reset")}>Réinitialiser l&apos;environnement de démonstration</Button>}
             </div>
             <p className="text-theme-xs text-gray-500">La réinitialisation restaure le jeu de données fictif initial et efface toutes vos modifications locales.</p>
             <TextAreaField label="Contenu JSON (import)" value={restoreText} onChange={setRestoreText} rows={4} />

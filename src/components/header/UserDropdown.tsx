@@ -10,7 +10,7 @@ import { useState } from "react";
 import HeaderPopover from "./HeaderPopover";
 
 export default function UserDropdown() {
-  const { user, db, logout, switchUser } = useDemo();
+  const { user, db, logout, switchUser, apiMode } = useDemo();
   const router = useRouter();
   const [showSwitch, setShowSwitch] = useState(false);
   if (!user) return null;
@@ -42,7 +42,8 @@ export default function UserDropdown() {
                 <UserCircleIcon /> Mon profil
               </Link>
             </li>
-            <li>
+            {/* Mode connecté (API) : pas de changement de profil de démo. */}
+            {!apiMode && <li>
               <button onClick={() => setShowSwitch((s) => !s)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">
                 <RefreshIcon /> Changer de profil de démonstration
                 <ChevronDownIcon className={cn("ms-auto transition", showSwitch && "rotate-180")} />
@@ -68,7 +69,7 @@ export default function UserDropdown() {
                     ))}
                 </ul>
               )}
-            </li>
+            </li>}
             <li>
               <Link href="/administration/demo" onClick={close} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">
                 <SettingsIcon /> Préférences et environnement de démo

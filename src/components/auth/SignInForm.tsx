@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 
 export default function SignInForm() {
   const t = useTranslations("auth");
-  const { db, user, login } = useDemo();
+  const { db, user, login, apiMode } = useDemo();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -39,10 +39,12 @@ export default function SignInForm() {
     if (Object.keys(errs).length) return;
     setLoading(true);
     setTimeout(() => {
-      const r = login(email, password);
-      setLoading(false);
-      if (!r.ok) setErrors({ form: r.error });
-      else router.replace("/");
+      // login est synchrone en démo, asynchrone en mode connecté (API).
+      void Promise.resolve(login(email, password)).then((r) => {
+        setLoading(false);
+        if (!r.ok) setErrors({ form: r.error });
+        else router.replace("/");
+      });
     }, 600);
   };
 
@@ -79,6 +81,7 @@ export default function SignInForm() {
           </Button>
         </form>
 
+        {!apiMode && (
         <div className="mt-8 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-gray-800 dark:text-white/90">Profils de démonstration</h2>
@@ -111,6 +114,7 @@ export default function SignInForm() {
             Authentification simulée côté navigateur, sans sécurité serveur. Les restrictions de profils sont une démonstration : les autorisations réelles seront implémentées lors de la phase backend.
           </p>
         </div>
+        )}
       </div>
     </div>
   );
