@@ -451,10 +451,23 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
 
   if (!value) return <SplashScreen />;
   // Mode connecté : mot de passe initial à remplacer avant d'utiliser l'application.
-  if (apiMode && mustChange && user) {
-    return <ChangePasswordScreen onDone={() => { setMustChange(false); toast.show("success", "Mot de passe enregistré."); }} />;
-  }
-  return <DemoStoreContext.Provider value={value}>{children}</DemoStoreContext.Provider>;
+  // L'écran est rendu DANS le Provider : il utilise ClivaLogo → useDemo().
+  return (
+    <DemoStoreContext.Provider value={value}>
+      {apiMode && mustChange && user ? (
+        <ChangePasswordScreen
+          onDone={() => {
+            // Recharge l'état serveur puis affiche l'application (sans reconnexion).
+            void reloadState();
+            setMustChange(false);
+            toast.show("success", "Mot de passe enregistré.");
+          }}
+        />
+      ) : (
+        children
+      )}
+    </DemoStoreContext.Provider>
+  );
 }
 
 export function SplashScreen({ label = "Chargement de l'environnement de démonstration…" }: { label?: string }) {
