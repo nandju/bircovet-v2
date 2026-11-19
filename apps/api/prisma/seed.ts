@@ -13,7 +13,7 @@
 import "dotenv/config";
 import { hash } from "@node-rs/argon2";
 import { PrismaNeon } from "@prisma/adapter-neon";
-import { createSeed, SCHEMA_VERSION, type DemoDB, type User } from "@cliva/core";
+import { createSeed, SCHEMA_VERSION, stripDemoPasswords, type DemoDB, type User } from "@cliva/core";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 // UUID fixe : le seed retrouve toujours la même clinique de test.
@@ -21,20 +21,6 @@ const SEED_CLINIC_ID = "00000000-0000-4000-8000-000000000001";
 const SEED_CLINIC_NAME = "BIRCOVET (test)";
 
 const REQUIRED = ["DATABASE_URL", "SEED_PASSWORD"] as const;
-
-/** Supprime récursivement toutes les clés `demoPassword` d'un objet. */
-function stripDemoPasswords<T>(value: T): T {
-  if (Array.isArray(value)) return value.map(stripDemoPasswords) as T;
-  if (value !== null && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-      if (key === "demoPassword") continue; // champ de démo public : jamais en base
-      out[key] = stripDemoPasswords(v);
-    }
-    return out as T;
-  }
-  return value;
-}
 
 async function main(): Promise<void> {
   const missing = REQUIRED.filter((name) => !process.env[name]?.trim());
@@ -80,6 +66,10 @@ async function main(): Promise<void> {
     // 3) Un compte par utilisateur du seed.
     //    Le hash Argon2 est calculé UNE fois : tous les comptes partagent
     //    le même mot de passe initial (SEED_PASSWORD).
+    //    db.platform.editor n'est PAS comptabilisé : l'éditeur plateforme
+    //    (console multi-cliniques, hors MVP) n'est jamais utilisé dans les
+    //    tests ni par la clinique — un compte inutile serait une surface
+    //    d'attaque de plus.
     const passwordHash = await hash(process.env.SEED_PASSWORD as string);
     const users = (createSeed(new Date()).users ?? []) as User[];
     for (const user of users) {

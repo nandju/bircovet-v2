@@ -81,6 +81,8 @@ interface DemoStore {
   setOffline: (offline: boolean) => void;
   resetDemo: () => void;
   markNotificationsRead: () => void;
+  /** Mode connecté : recharge l'état depuis le serveur (après un appel REST hors /ops). */
+  refresh: () => Promise<void>;
 }
 
 const DemoStoreContext = createContext<DemoStore | undefined>(undefined);
@@ -456,8 +458,9 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       markNotificationsRead: () => {
         run(markNotificationsReadSvc, {}, { silent: true });
       },
+      refresh: reloadState,
     };
-  }, [db, session, user, establishment, run, login, saveSession, persist, toast]);
+  }, [db, session, user, establishment, run, login, saveSession, persist, toast, reloadState]);
 
   if (!value) return <SplashScreen />;
   // Mode connecté : mot de passe initial à remplacer avant d'utiliser l'application.

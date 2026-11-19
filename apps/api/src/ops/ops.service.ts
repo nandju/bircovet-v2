@@ -10,6 +10,7 @@ import {
   canWith, executeService, isoLocal, OPERATIONS, refreshDerived, SCHEMA_VERSION,
   type ActionCtx, type DemoDB, type ServiceResult, type User,
 } from "@cliva/core";
+import type { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ClinicStateCache } from "../state/clinic-state-cache.service";
 import type { AuthUser } from "../auth/current-user.decorator";
@@ -128,6 +129,10 @@ export class OpsService {
         // L'état écrit devient la référence du cache (executeService a
         // produit une nouvelle base — l'entrée cachée n'a pas été mutée).
         this.cache.set(auth.clinicId, version, newData);
+        // Activation/désactivation d'un utilisateur : l'accès (Account) suit
+        // dans la MÊME transaction — un utilisateur désactivé ne peut plus
+        // se connecter et ses sessions ouvertes sont révoquées.
+        if (dto.name === "admin.utilisateur.actif") await this.syncAccountActive(tx, auth.clinicId, dto.input);
         return { ok: true, version, message: result.message, data: result.data };
       }
 
@@ -137,5 +142,27 @@ export class OpsService {
       });
       return { ok: false, version: lockedVersion, error: result.error };
     });
+  }
+
+  /** Répercute l'activation/désactivation métier sur l'accès (login + sessions). */
+  private async syncAccountActive(
+    tx: Prisma.TransactionClient,
+    clinicId: string,
+    input: unknown,
+  ): Promise<void> {
+    const { id, active } = (input ?? {}) as { id?: string; active?: boolean };
+    if (typeof id !== "string" || typeof active !== "boolean") return;
+    const account = await tx.account.findUnique({
+      where: { clinicId_userId: { clinicId, userId: id } },
+      select: { id: true },
+    });
+    if (!account) return; // utilisateur sans accès (compte jamais créé) : rien à faire
+    await tx.account.update({ where: { id: account.id }, data: { active } });
+    if (!active) {
+      await tx.refreshToken.updateMany({
+        where: { accountId: account.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
   }
 }

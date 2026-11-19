@@ -6,7 +6,7 @@
  * - Sur une réponse 401 : renouvellement via /auth/refresh puis UNE SEULE
  *   nouvelle tentative.
  */
-import type { DemoDB } from "./types";
+import type { DemoDB, User } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 /** true = mode connecté (API) ; false = mode démo localStorage actuel. */
@@ -130,6 +130,32 @@ export const apiChangePassword = (oldPassword: string, newPassword: string) =>
   apiFetch<{ ok: boolean }>("/auth/change-password", {
     method: "POST",
     body: JSON.stringify({ oldPassword, newPassword }),
+  });
+
+/* ---------- Gestion des accès (DG) ---------- */
+
+/** Mêmes champs que l'input de l'opération « admin.utilisateur.creer ». */
+export type AccountUserInput = Pick<User, "name" | "email" | "roleId" | "establishmentId" | "title" | "phone">;
+
+export interface CreateAccountResponse {
+  ok: boolean;
+  userId?: string;
+  version?: number;
+  error?: string;
+}
+
+/** Crée l'utilisateur ET son accès en une transaction côté serveur. */
+export const apiCreateAccount = (user: AccountUserInput, email: string, temporaryPassword: string) =>
+  apiFetch<CreateAccountResponse>("/accounts", {
+    method: "POST",
+    body: JSON.stringify({ user, email, temporaryPassword }),
+  });
+
+/** Nouveau mot de passe temporaire + sessions du compte révoquées. */
+export const apiResetPassword = (userId: string, temporaryPassword: string) =>
+  apiFetch<{ ok: boolean }>(`/accounts/${encodeURIComponent(userId)}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ temporaryPassword }),
   });
 
 /* ---------- Envoi des opérations ---------- */

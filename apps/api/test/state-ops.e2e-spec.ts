@@ -229,4 +229,115 @@ describe("State & Ops (e2e)", () => {
     expect(res.body.fullDataReads).toBeGreaterThanOrEqual(1);
     expect(res.body.dataBytesRead).toBeGreaterThan(0);
   });
+
+  /* ---------- /api/accounts : gestion des accès par le DG ---------- */
+
+  // E-mail unique à chaque exécution : les tests restent rejouables.
+  const NEW_EMAIL = `acct-${randomUUID().slice(0, 8)}@cliva.test`;
+  const NEW_PASSWORD = "Temporaire-E2E!123";
+  const newUserInput = (estId: string) => ({
+    name: "Compte E2E",
+    email: NEW_EMAIL,
+    roleId: "vet",
+    establishmentId: estId,
+    title: "Vétérinaire de test",
+    phone: "01 02 03 04 05",
+  });
+
+  const firstEstablishmentId = async (): Promise<string> => {
+    const st = await authed(tokenDg).get("/api/state");
+    return st.body.data.establishments[0].id as string;
+  };
+
+  it("POST /api/accounts : un assistant reçoit 403", async () => {
+    const res = await authed(tokenAssistant)
+      .post("/api/accounts")
+      .send({ user: newUserInput("x"), email: NEW_EMAIL, temporaryPassword: NEW_PASSWORD });
+    expect(res.status).toBe(403);
+  });
+
+  it("POST /api/accounts : le DG crée un utilisateur qui peut se connecter (mustChangePassword)", async () => {
+    const res = await authed(tokenDg)
+      .post("/api/accounts")
+      .send({ user: newUserInput(await firstEstablishmentId()), email: NEW_EMAIL, temporaryPassword: NEW_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(typeof res.body.userId).toBe("string");
+
+    // L'utilisateur est bien dans l'état de la clinique 1…
+    const state = await authed(tokenDg).get("/api/state");
+    const created = state.body.data.users.find((u: { id: string }) => u.id === res.body.userId);
+    expect(created).toBeDefined();
+    expect(created.email).toBe(NEW_EMAIL);
+
+    // … et son accès fonctionne : connexion réussie, mot de passe à changer.
+    const loginRes = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({ email: NEW_EMAIL, password: NEW_PASSWORD });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.mustChangePassword).toBe(true);
+
+    // Le compte créé appartient à la clinique du jeton (jamais une autre).
+    const account = await prisma.account.findUnique({ where: { email: NEW_EMAIL } });
+    expect(account?.clinicId).toBe(CLINIC1);
+    // Et l'utilisateur n'apparaît pas dans l'état de la clinique 2.
+    const state2 = await authed(tokenClinic2).get("/api/state");
+    expect(state2.body.data.users.some((u: { id: string }) => u.id === res.body.userId)).toBe(false);
+  });
+
+  it("POST /api/accounts : e-mail déjà pris → refus explicite", async () => {
+    const res = await authed(tokenDg)
+      .post("/api/accounts")
+      .send({ user: { ...newUserInput(await firstEstablishmentId()), name: "Doublon" }, email: NEW_EMAIL, temporaryPassword: NEW_PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("déjà utilisé");
+  });
+
+  it("Utilisateur désactivé : connexion refusée, réactivation → connexion possible", async () => {
+    const account = await prisma.account.findUnique({ where: { email: NEW_EMAIL } });
+    expect(account).not.toBeNull();
+
+    // Désactivation métier via l'opération existante → Account.active suit.
+    const off = await authed(tokenDg)
+      .post("/api/ops")
+      .send(opBody("admin.utilisateur.actif", { id: account!.userId, active: false, reason: "Test e2e désactivation" }));
+    expect(off.body.ok).toBe(true);
+    const disabled = await prisma.account.findUnique({ where: { email: NEW_EMAIL } });
+    expect(disabled?.active).toBe(false);
+
+    const loginOff = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({ email: NEW_EMAIL, password: NEW_PASSWORD });
+    expect(loginOff.status).toBe(401);
+
+    // Réactivation → l'accès fonctionne de nouveau.
+    const on = await authed(tokenDg)
+      .post("/api/ops")
+      .send(opBody("admin.utilisateur.actif", { id: account!.userId, active: true, reason: "Test e2e réactivation" }));
+    expect(on.body.ok).toBe(true);
+    const loginOn = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({ email: NEW_EMAIL, password: NEW_PASSWORD });
+    expect(loginOn.status).toBe(200);
+  });
+
+  it("POST /api/accounts/:userId/reset-password : nouveau mot de passe temporaire, sessions révoquées", async () => {
+    const account = await prisma.account.findUnique({ where: { email: NEW_EMAIL } });
+    const res = await authed(tokenDg)
+      .post(`/api/accounts/${account!.userId}/reset-password`)
+      .send({ temporaryPassword: "Nouveau-Temp-E2E!456" });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    // L'ancien mot de passe ne marche plus ; le nouveau impose un changement.
+    const oldLogin = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({ email: NEW_EMAIL, password: NEW_PASSWORD });
+    expect(oldLogin.status).toBe(401);
+    const newLogin = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({ email: NEW_EMAIL, password: "Nouveau-Temp-E2E!456" });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body.mustChangePassword).toBe(true);
+  });
 });

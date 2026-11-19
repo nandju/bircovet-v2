@@ -12,9 +12,11 @@ import { FormGrid, SelectField, TextField } from "@/components/form/Field";
 import DataTable from "@/components/tables/DataTable";
 import Button from "@/components/ui/button/Button";
 import { useDemo } from "@/context/DemoStoreContext";
+import { useToast } from "@/context/ToastContext";
 import { useModal } from "@/hooks/useModal";
 import { useOptions } from "@/hooks/useOptions";
 import { PlusIcon } from "@/icons";
+import { apiCreateAccount, apiResetPassword } from "@/lib/api";
 import { establishmentName } from "@/lib/calc";
 import { formatDate } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/permissions";
@@ -25,21 +27,76 @@ import { useEffect, useState } from "react";
 const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as RoleId[]).filter((r) => r !== "editeur").map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
 export default function UsersPage() {
-  const { db, run, user: me } = useDemo();
+  const { db, run, user: me, apiMode, refresh } = useDemo();
+  const toast = useToast();
   const opts = useOptions();
   const modal = useModal();
   const [editing, setEditing] = useState<User | undefined>();
   const [toggle, setToggle] = useState<User | null>(null);
   const [historyOf, setHistoryOf] = useState<User | null>(null);
   const [v, setV] = useState<UserInput>({ name: "", email: "", roleId: "assistant", establishmentId: "", title: "", phone: "" });
+  // Mode connecté : la création passe par POST /api/accounts (utilisateur + accès en une transaction).
+  const [tempPwd, setTempPwd] = useState("");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetting, setResetting] = useState(false);
   useEffect(() => {
-    if (modal.isOpen) setV(editing ? { name: editing.name, email: editing.email, roleId: editing.roleId, establishmentId: editing.establishmentId, title: editing.title, phone: editing.phone } : { name: "", email: "", roleId: "assistant", establishmentId: db.establishments[0]?.id ?? "", title: "", phone: "" });
+    if (modal.isOpen) {
+      setV(editing ? { name: editing.name, email: editing.email, roleId: editing.roleId, establishmentId: editing.establishmentId, title: editing.title, phone: editing.phone } : { name: "", email: "", roleId: "assistant", establishmentId: db.establishments[0]?.id ?? "", title: "", phone: "" });
+      setTempPwd("");
+      setFormError("");
+    }
   }, [modal.isOpen, editing, db.establishments]);
+
+  const onSave = async () => {
+    if (editing) {
+      if (run(updateUser, { id: editing.id, patch: v }).ok) modal.closeModal();
+      return;
+    }
+    if (!apiMode) {
+      if (run(createUser, v).ok) modal.closeModal();
+      return;
+    }
+    // Mode connecté : POST /api/accounts crée l'utilisateur ET son accès
+    // (mot de passe temporaire à changer à la première connexion).
+    setSaving(true);
+    setFormError("");
+    try {
+      const res = await apiCreateAccount(v, v.email, tempPwd);
+      if (res.ok) {
+        toast.show("success", "Compte créé — communiquez le mot de passe temporaire à l'utilisateur.");
+        await refresh();
+        modal.closeModal();
+      } else setFormError(res.error ?? "Création refusée par le serveur.");
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Création impossible (serveur injoignable).");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onReset = async () => {
+    if (!resetTarget) return;
+    setResetting(true);
+    setResetError("");
+    try {
+      await apiResetPassword(resetTarget.id, resetPwd);
+      toast.show("success", "Mot de passe réinitialisé — les sessions de ce compte ont été révoquées.");
+      setResetTarget(null);
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : "Réinitialisation impossible.");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
       <PageBreadcrumb pageTitle="Utilisateurs" trail={[{ label: "Administration", href: "/administration/utilisateurs" }]} actions={<Button size="sm" startIcon={<PlusIcon />} onClick={() => { setEditing(undefined); modal.openModal(); }}>Nouvel utilisateur</Button>} />
-      <DemoNotice>Comptes fictifs de démonstration. La désactivation n&apos;efface jamais l&apos;historique d&apos;un utilisateur. Aucune gestion réelle des mots de passe n&apos;est effectuée.</DemoNotice>
+      {!apiMode && <DemoNotice>Comptes fictifs de démonstration. La désactivation n&apos;efface jamais l&apos;historique d&apos;un utilisateur. Aucune gestion réelle des mots de passe n&apos;est effectuée.</DemoNotice>}
       <Panel>
         <DataTable
           rows={db.users}
@@ -59,6 +116,7 @@ export default function UsersPage() {
                   <Button size="xs" variant="ghost" onClick={() => { setEditing(u); modal.openModal(); }}>Modifier</Button>
                   <Button size="xs" variant="ghost" onClick={() => setHistoryOf(u)}>Activité</Button>
                   {u.id !== me?.id && <Button size="xs" variant={u.active ? "ghost" : "soft"} className={u.active ? "text-error-600" : ""} onClick={() => setToggle(u)}>{u.active ? "Désactiver" : "Réactiver"}</Button>}
+                  {apiMode && u.id !== me?.id && <Button size="xs" variant="ghost" onClick={() => { setResetTarget(u); setResetPwd(""); setResetError(""); }}>Réinitialiser le mot de passe</Button>}
                 </span>
               ),
             },
@@ -72,7 +130,7 @@ export default function UsersPage() {
         footer={
           <>
             <Button size="sm" variant="outline" onClick={modal.closeModal}>Annuler</Button>
-            <Button size="sm" onClick={() => (editing ? run(updateUser, { id: editing.id, patch: v }) : run(createUser, v)).ok && modal.closeModal()} disabled={!v.name.trim() || !v.email.trim()}>Enregistrer</Button>
+            <Button size="sm" onClick={() => void onSave()} disabled={saving || !v.name.trim() || !v.email.trim() || (!!apiMode && !editing && tempPwd.length < 10)}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
           </>
         }
       >
@@ -83,11 +141,31 @@ export default function UsersPage() {
           <SelectField label="Établissement" value={v.establishmentId} onChange={(establishmentId) => setV({ ...v, establishmentId })} options={opts.establishments} />
           <TextField label="Fonction" value={v.title} onChange={(title) => setV({ ...v, title })} />
           <TextField label="Téléphone" value={v.phone} onChange={(phone) => setV({ ...v, phone })} />
+          {apiMode && !editing && <TextField label="Mot de passe temporaire (10 caractères min.)" type="password" value={tempPwd} onChange={setTempPwd} />}
         </FormGrid>
+        {formError && <p className="mt-3 text-sm text-error-600">{formError}</p>}
+        {apiMode && !editing && <p className="mt-3 text-theme-xs text-gray-500">L&apos;utilisateur devra choisir son propre mot de passe à sa première connexion.</p>}
       </AppModal>
       <ConfirmDialog isOpen={!!toggle} onClose={() => setToggle(null)} title={toggle?.active ? "Désactiver l'utilisateur" : "Réactiver l'utilisateur"} tone={toggle?.active ? "danger" : "primary"} message={toggle?.active ? "L'utilisateur ne pourra plus se connecter ; son historique (actes, validations, journal) est conservé." : "L'utilisateur pourra de nouveau se connecter."} reasonLabel="Motif" onConfirm={(reason) => (toggle ? run(setUserActive, { id: toggle.id, active: !toggle.active, reason }).ok : false)} />
       <AppModal isOpen={!!historyOf} onClose={() => setHistoryOf(null)} title={`Historique d'activité — ${historyOf?.name ?? ""}`} size="lg">
         {historyOf && <EntityHistory items={db.audit.filter((a) => a.userId === historyOf.id).map((a) => ({ date: a.date, label: `${a.module} — ${a.action}`, detail: a.target, userId: a.userId }))} auditTargets={[historyOf.name]} />}
+      </AppModal>
+      <AppModal
+        isOpen={!!resetTarget}
+        onClose={() => setResetTarget(null)}
+        title={`Réinitialiser le mot de passe — ${resetTarget?.name ?? ""}`}
+        footer={
+          <>
+            <Button size="sm" variant="outline" onClick={() => setResetTarget(null)}>Annuler</Button>
+            <Button size="sm" onClick={() => void onReset()} disabled={resetting || resetPwd.length < 10}>{resetting ? "Réinitialisation…" : "Réinitialiser"}</Button>
+          </>
+        }
+      >
+        <FormGrid>
+          <TextField label="Nouveau mot de passe temporaire (10 caractères min.)" type="password" value={resetPwd} onChange={setResetPwd} />
+        </FormGrid>
+        {resetError && <p className="mt-3 text-sm text-error-600">{resetError}</p>}
+        <p className="mt-3 text-theme-xs text-gray-500">L&apos;utilisateur devra choisir son propre mot de passe à sa prochaine connexion ; ses sessions actives seront fermées.</p>
       </AppModal>
     </div>
   );
