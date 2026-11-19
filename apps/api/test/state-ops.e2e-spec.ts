@@ -29,6 +29,17 @@ const opBody = (name: string, input: unknown, opKey = randomUUID()) => ({
   clientNow: new Date().toISOString(),
 });
 
+// État réduit (~quelques Ko au lieu de ~1 Mo) : les collections volumineuses
+// sont tronquées à 1 élément. Utilisé pour la clinique 2, qui ne fait que des
+// lectures d'isolement — Neon facture les octets lus, inutile de payer 1 Mo.
+const reducedState = (db: DemoDB): DemoDB => {
+  const small = { ...db } as Record<string, unknown>;
+  for (const [k, v] of Object.entries(small)) {
+    if (Array.isArray(v) && k !== "users" && k !== "establishments") small[k] = v.slice(0, 1);
+  }
+  return small as unknown as DemoDB;
+};
+
 // Input complet et valide pour l'opération « clients.creer ».
 const clientInput = {
   type: "particulier",
@@ -85,7 +96,7 @@ describe("State & Ops (e2e)", () => {
     });
     await prisma.clinicState.upsert({
       where: { clinicId: CLINIC1 },
-      update: { data: db1 as object, schemaVersion: SCHEMA_VERSION },
+      update: { data: db1 as object, schemaVersion: SCHEMA_VERSION, version: { increment: 1 } },
       create: { clinicId: CLINIC1, version: 1, schemaVersion: SCHEMA_VERSION, data: db1 as object },
     });
     for (const [userId, email, roleId] of [
@@ -99,8 +110,9 @@ describe("State & Ops (e2e)", () => {
       });
     }
 
-    // Clinique 2 : autre état (même utilisateurs dans SON état), compte dg.
-    const db2 = stripDemoPasswords(createSeed(new Date())) as DemoDB;
+    // Clinique 2 : état RÉDUIT (lectures d'isolement seulement — chaque Ko
+    // lu depuis Neon compte dans le quota de la base de test).
+    const db2 = reducedState(stripDemoPasswords(createSeed(new Date())) as DemoDB);
     await prisma.clinic.upsert({
       where: { id: CLINIC2 },
       update: {},
@@ -108,7 +120,7 @@ describe("State & Ops (e2e)", () => {
     });
     await prisma.clinicState.upsert({
       where: { clinicId: CLINIC2 },
-      update: { data: db2 as object, schemaVersion: SCHEMA_VERSION },
+      update: { data: db2 as object, schemaVersion: SCHEMA_VERSION, version: { increment: 1 } },
       create: { clinicId: CLINIC2, version: 1, schemaVersion: SCHEMA_VERSION, data: db2 as object },
     });
     await prisma.account.upsert({
@@ -205,5 +217,16 @@ describe("State & Ops (e2e)", () => {
     // Et son état est bien le sien (version propre à la clinique 2).
     const v2 = (await authed(tokenClinic2).get("/api/state/version")).body.version as number;
     expect(v2).toBeGreaterThanOrEqual(1);
+  });
+
+  it("GET /api/health/usage : compteurs de lecture Neon — DG seulement", async () => {
+    const denied = await authed(tokenAssistant).get("/api/health/usage");
+    expect(denied.status).toBe(403);
+
+    const res = await authed(tokenDg).get("/api/health/usage");
+    expect(res.status).toBe(200);
+    // Des lectures complètes de data ont eu lieu au moins une fois (seed du cache).
+    expect(res.body.fullDataReads).toBeGreaterThanOrEqual(1);
+    expect(res.body.dataBytesRead).toBeGreaterThan(0);
   });
 });

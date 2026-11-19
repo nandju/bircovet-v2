@@ -64,7 +64,10 @@ async function main(): Promise<void> {
     const db: DemoDB = stripDemoPasswords(createSeed(new Date()));
     await prisma.clinicState.upsert({
       where: { clinicId: clinic.id },
-      update: { data: db as object, schemaVersion: SCHEMA_VERSION },
+      // version+1 à chaque réécriture : le cache en mémoire de l'API se base
+      // sur la version pour savoir si data a changé — un re-seed doit
+      // invalider l'état en cache d'une API qui tourne.
+      update: { data: db as object, schemaVersion: SCHEMA_VERSION, version: { increment: 1 } },
       create: {
         clinicId: clinic.id,
         version: 1,

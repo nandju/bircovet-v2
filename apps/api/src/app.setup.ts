@@ -1,6 +1,7 @@
 // Configuration commune de l'application Express/Nest, factorisée pour être
 // réutilisée telle quelle par les tests e2e (mêmes middlewares, mêmes règles).
 import { ValidationPipe, type INestApplication } from "@nestjs/common";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { env } from "./config/env";
@@ -8,6 +9,9 @@ import { env } from "./config/env";
 export function configureApp(app: INestApplication): void {
   // En-têtes HTTP de sécurité standards.
   app.use(helmet());
+  // Réponses gzip : l'état de la clinique fait ~1 Mo de JSON — indispensable
+  // pour les téléphones en bas débit (seules les réponses compressibles).
+  app.use(compression());
   // Lecture des cookies (jeton de renouvellement httpOnly).
   app.use(cookieParser());
   // Seule l'origine du front est autorisée, cookies d'auth inclus.
