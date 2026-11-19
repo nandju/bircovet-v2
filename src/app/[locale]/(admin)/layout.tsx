@@ -19,7 +19,7 @@ import React, { Suspense, useEffect } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-  const { user, can } = useDemo();
+  const { user, can, apiMode } = useDemo();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -44,7 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AppHeader />
         <main className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4 md:p-6 print:p-0">{allowed ? <Suspense fallback={null}>{children}</Suspense> : <AccessDenied what={mod ? MODULE_LABELS[mod] : undefined} />}</main>
       </div>
-      {allowed && user.roleId !== "editeur" && <MiniMarc />}
+      {/* Assistant IA hors périmètre MVP : masqué en mode connecté (code conservé). */}
+      {allowed && !apiMode && user.roleId !== "editeur" && <MiniMarc />}
       {user.roleId !== "editeur" && <AlertCenter />}
       <Watermark />
       {user.roleId !== "editeur" && <WelcomeTour />}

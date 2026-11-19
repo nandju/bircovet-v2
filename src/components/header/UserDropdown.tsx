@@ -72,7 +72,7 @@ export default function UserDropdown() {
             </li>}
             <li>
               <Link href="/administration/demo" onClick={close} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">
-                <SettingsIcon /> Préférences et environnement de démo
+                <SettingsIcon /> {apiMode ? "Préférences" : "Préférences et environnement de démo"}
               </Link>
             </li>
           </ul>

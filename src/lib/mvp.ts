@@ -35,7 +35,6 @@ export const isMvpModule = (m: ModuleId): boolean => MVP_MODULES.includes(m);
  */
 export const MVP_HIDDEN_NAV_KEYS: readonly string[] = [
   "approvals", // circuit d'approbation générique (approvalsService hors registre)
-  "help", // tutoriels (tutorialsService hors registre)
   "payables", // dettes fournisseurs (payablesService hors registre)
   "forecast", // prévisions d'achat (hors MVP — AUDIT §3.5)
   "projects", // projets (projectsService hors registre)

@@ -28,7 +28,9 @@ export default async function AuthLayout({ children, params }: { children: React
               ))}
             </ul>
             <p className="mt-10 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-theme-xs text-white/70">
-              Environnement de démonstration frontend : toutes les données sont fictives et restent dans ce navigateur.
+              {process.env.NEXT_PUBLIC_API_URL
+                ? "Version de test — vos données sont enregistrées sur le serveur de la clinique."
+                : "Environnement de démonstration frontend : toutes les données sont fictives et restent dans ce navigateur."}
             </p>
             <AnnouncementCarousel placement="connexion" tone="dark" className="mt-6 w-full" />
           </div>

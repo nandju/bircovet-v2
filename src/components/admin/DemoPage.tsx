@@ -62,11 +62,11 @@ export default function DemoPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <PageBreadcrumb pageTitle="Environnement de démonstration" trail={[{ label: "Administration", href: "/administration/utilisateurs" }]} />
-      <DemoNotice>
+      <PageBreadcrumb pageTitle={apiMode ? "Préférences" : "Environnement de démonstration"} trail={[{ label: "Administration", href: "/administration/utilisateurs" }]} />
+      {!apiMode && <DemoNotice>
         Toutes les données sont fictives et conservées localement dans ce navigateur (localStorage versionné). Aucun serveur, compte bancaire, opérateur Mobile Money, service SMS/WhatsApp ou modèle d&apos;IA n&apos;est sollicité.
-      </DemoNotice>
-      <Tabs tabs={[{ key: "profils", label: "Profils de test" }, { key: "data", label: "Données de démonstration" }, { key: "offline", label: "Hors ligne et synchronisation", count: pending + conflicts }]} active={tab} onChange={setTab} />
+      </DemoNotice>}
+      <Tabs tabs={[{ key: "profils", label: apiMode ? "Profils" : "Profils de test" }, { key: "data", label: apiMode ? "Données" : "Données de démonstration" }, ...(!apiMode ? [{ key: "offline", label: "Hors ligne et synchronisation", count: pending + conflicts }] : [])]} active={tab} onChange={setTab} />
 
       {tab === "profils" && (
         <>
@@ -95,7 +95,7 @@ export default function DemoPage() {
 
       {tab === "data" && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
-          <ComponentCard title="Inventaire des données fictives">
+          <ComponentCard title={apiMode ? "Données de la clinique" : "Inventaire des données fictives"}>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {stats.map(([l, v]) => (
                 <div key={l} className="rounded-xl bg-gray-50 p-3 dark:bg-white/3">
@@ -106,15 +106,16 @@ export default function DemoPage() {
             </div>
             <p className="text-theme-xs text-gray-500">Version du schéma : {db.schemaVersion} · jeu créé le {formatDateTime(db.seededAt)} · session : {user?.name}.</p>
           </ComponentCard>
-          <ComponentCard title="Sauvegarde et réinitialisation">
+          {/* Sauvegarde / réinitialisation : outils de démonstration, masqués en mode connecté. */}
+          {!apiMode && <ComponentCard title="Sauvegarde et réinitialisation">
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" startIcon={<DownloadIcon />} onClick={() => setConfirm("backup")}>Exporter la sauvegarde (JSON)</Button>
               <Button size="sm" variant="outline" startIcon={<UploadIcon />} onClick={() => { setRestoreText(""); setConfirm("restore"); }}>Importer une sauvegarde</Button>
-              {!apiMode && <Button size="sm" variant="danger" startIcon={<TrashBinIcon />} onClick={() => setConfirm("reset")}>Réinitialiser l&apos;environnement de démonstration</Button>}
+              <Button size="sm" variant="danger" startIcon={<TrashBinIcon />} onClick={() => setConfirm("reset")}>Réinitialiser l&apos;environnement de démonstration</Button>
             </div>
             <p className="text-theme-xs text-gray-500">La réinitialisation restaure le jeu de données fictif initial et efface toutes vos modifications locales.</p>
             <TextAreaField label="Contenu JSON (import)" value={restoreText} onChange={setRestoreText} rows={4} />
-          </ComponentCard>
+          </ComponentCard>}
         </div>
       )}
 
