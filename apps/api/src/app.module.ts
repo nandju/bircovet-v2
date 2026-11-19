@@ -9,12 +9,13 @@ import { AuthModule } from "./auth/auth.module";
 import { StateModule } from "./state/state.module";
 import { OpsModule } from "./ops/ops.module";
 import { AccountsModule } from "./accounts/accounts.module";
+import { AlertsModule } from "./alerts/alerts.module";
 
 // Référencé ici pour que le bundler inclue réellement @cliva/core
 // et que l'import soit testé au démarrage (affiché dans les logs).
 export const CLIVA_SCHEMA_VERSION = SCHEMA_VERSION;
 
 @Module({
-  imports: [PrismaModule, HealthModule, AuthModule, StateModule, OpsModule, AccountsModule],
+  imports: [PrismaModule, HealthModule, AuthModule, StateModule, OpsModule, AccountsModule, AlertsModule],
 })
 export class AppModule {}

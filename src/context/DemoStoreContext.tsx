@@ -72,7 +72,7 @@ interface DemoStore {
   today: string;
   /** true = mode connecté (API NestJS) ; false = démo localStorage. */
   apiMode: boolean;
-  run: <I, T = undefined>(svc: Service<I, T>, input: I, opts?: { silent?: boolean }) => ServiceResult<T>;
+  run: <I, T = undefined>(svc: Service<I, T>, input: I, opts?: { silent?: boolean; auto?: boolean }) => ServiceResult<T>;
   can: (m: ModuleId, a?: PermAction) => boolean;
   login: (email: string, password: string) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
@@ -155,6 +155,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   // Mode connecté : dernière version serveur connue + file d'envoi ordonnée.
   const serverVersionRef = useRef(0);
   const queueRef = useRef<PendingOp[]>([]);
+  // Garde-fou anti-rafale : horodatages des opérations marquées « auto »
+  // (appels non déclenchés par un clic ou une saisie — intervalles, effets).
+  const autoOpsRef = useRef<number[]>([]);
+  const autoWarnRef = useRef(0);
   const sendingRef = useRef(false);
   const offlineToastRef = useRef(false);
 
@@ -349,7 +353,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const run = useCallback(
-    <I, T = undefined>(svc: Service<I, T>, input: I, opts?: { silent?: boolean }): ServiceResult<T> => {
+    <I, T = undefined>(svc: Service<I, T>, input: I, opts?: { silent?: boolean; auto?: boolean }): ServiceResult<T> => {
       const current = dbRef.current;
       if (!current || !user || !establishment) {
         const r = { ok: false as const, error: "Session expirée : reconnectez-vous." };
@@ -383,8 +387,26 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
           // partagée ni provoquer de rechargement chez les autres postes.
           const name = OP_NAMES.get(svc) as string;
           if (!LOCAL_ONLY_API_OPS.has(name)) {
-            queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
-            void pumpQueue();
+            let allow = true;
+            if (opts?.auto) {
+              // Ops marquées « auto » (intervalle, effet de montage — jamais un
+              // clic ou une saisie) : si plus de 10 partent en moins d'une
+              // minute, c'est forcément une boucle — on suspend l'envoi et on
+              // avertit (la donnée reste appliquée localement).
+              const t = Date.now();
+              autoOpsRef.current = autoOpsRef.current.filter((x) => t - x < 60_000);
+              if (autoOpsRef.current.length >= 10) {
+                allow = false;
+                if (t - autoWarnRef.current > 60_000) {
+                  autoWarnRef.current = t;
+                  console.warn(`[Cliva API] Plus de 10 opérations automatiques en moins d'une minute (dernière : ${name}) — envoi suspendu pour cette rafale. Vérifiez les appels run(..., { auto: true }).`);
+                }
+              } else autoOpsRef.current.push(t);
+            }
+            if (allow) {
+              queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
+              void pumpQueue();
+            }
           }
         }
       } else if (!opts?.silent) toast.show("error", r.error);

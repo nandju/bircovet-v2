@@ -44,7 +44,7 @@ export function systemNotify(title: string, body: string, tag?: string) {
  * et pousse les nouvelles notifications marquées « push » (notification système + bandeau).
  */
 export default function AlertCenter() {
-  const { db, run, user } = useDemo();
+  const { db, run, user, apiMode } = useDemo();
   const toast = useToast();
   const runRef = useRef(run);
   const ready = useRef(false);
@@ -65,15 +65,18 @@ export default function AlertCenter() {
   // un nouveau reload… (boucle ~12 s mesurée : 332 ops/heure).
   const userId = user?.id;
   useEffect(() => {
-    if (!userId) return;
-    const scan = () => runRef.current(runAlertScan, {}, { silent: true });
+    // En mode connecté, le scan d'alertes tourne côté SERVEUR (tâche planifiée
+    // de l'API — un seul endroit, écriture seulement s'il y a du nouveau) :
+    // les navigateurs n'exécutent plus du tout cette opération.
+    if (!userId || apiMode) return;
+    const scan = () => runRef.current(runAlertScan, {}, { silent: true, auto: true });
     const first = setTimeout(scan, 1500);
     const t = setInterval(scan, SCAN_MS);
     return () => {
       clearTimeout(first);
       clearInterval(t);
     };
-  }, [userId]);
+  }, [userId, apiMode]);
 
   useEffect(() => {
     if (!user) return;

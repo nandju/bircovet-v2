@@ -34,7 +34,7 @@ export default function AnnouncementCarousel({ placement, tone = "light", classN
   useEffect(() => {
     if (!cur || seen.current.has(cur.id) || !user) return;
     seen.current.add(cur.id);
-    run(trackAnnouncement, { id: cur.id, kind: "view" }, { silent: true });
+    run(trackAnnouncement, { id: cur.id, kind: "view" }, { silent: true, auto: true });
   }, [cur, run, user]);
 
   if (!cur) return null;
