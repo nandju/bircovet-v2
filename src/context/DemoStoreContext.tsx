@@ -20,7 +20,7 @@ import {
 } from "@/lib/api";
 import { OPERATIONS } from "@/lib/services/registry";
 import { markNotificationsRead as markNotificationsReadSvc } from "@/lib/services/notificationsService";
-import { isMvpModule } from "@/lib/mvp";
+import { isMvpModule, LOCAL_ONLY_API_OPS } from "@/lib/mvp";
 import { isoLocal } from "@/lib/format";
 import { applyRoleSettings, can as canRole, type ModuleId, type PermAction } from "@/lib/permissions";
 import { applyCategoryList, applyLabelOverrides } from "@/lib/labels";
@@ -209,20 +209,19 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     if (sendingRef.current) return;
     sendingRef.current = true;
     try {
+      // Version connue avant mes envois + nombre d'envois réussis : à la fin,
+      // on ne recharge que si la version a avancé AU-DELÀ de mes propres ops
+      // (un autre poste a écrit) — sinon l'état local optimiste est déjà juste.
+      const versionBefore = serverVersionRef.current;
+      let okCount = 0;
       while (queueRef.current.length > 0) {
         const op = queueRef.current[0];
         try {
           const res = await apiPostOp(op);
           queueRef.current.shift();
           offlineToastRef.current = false;
-          if (res.ok) {
-            // La version serveur a avancé : on recharge quand la file est vide
-            // (sinon l'état local optimiste des opérations suivantes serait écrasé).
-            if (res.version !== undefined && res.version !== serverVersionRef.current) {
-              serverVersionRef.current = res.version;
-              if (queueRef.current.length === 0) await reloadState();
-            }
-          } else {
+          if (res.ok) okCount += 1;
+          else {
             // Refus métier : l'état local optimiste est faux → on resynchronise.
             toast.show("error", res.error ?? "Opération refusée par le serveur.");
             await reloadState();
@@ -241,6 +240,19 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
           queueRef.current.shift();
           toast.show("error", e instanceof Error ? e.message : "Opération rejetée par le serveur.");
           await reloadState();
+        }
+      }
+      if (okCount > 0) {
+        try {
+          const { version } = await apiGetVersion();
+          if (version === versionBefore + okCount) {
+            // La nouvelle version correspond exactement à mes envois.
+            serverVersionRef.current = version;
+          } else {
+            await reloadState();
+          }
+        } catch {
+          /* serveur injoignable : l'interrogation périodique reprendra le relais */
         }
       }
     } finally {
@@ -366,9 +378,14 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         if (apiMode) {
           // Mode connecté : envoi de l'opération au serveur (file ordonnée).
           // OP_NAMES.get(svc) est garanti non nul (vérifié avant l'exécution).
+          // Les ops de LOCAL_ONLY_API_OPS (compteurs, scan d'alertes, « lu »)
+          // restent locales : elles ne doivent pas faire avancer la version
+          // partagée ni provoquer de rechargement chez les autres postes.
           const name = OP_NAMES.get(svc) as string;
-          queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
-          void pumpQueue();
+          if (!LOCAL_ONLY_API_OPS.has(name)) {
+            queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
+            void pumpQueue();
+          }
         }
       } else if (!opts?.silent) toast.show("error", r.error);
       return r;

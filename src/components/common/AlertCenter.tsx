@@ -59,8 +59,13 @@ export default function AlertCenter() {
     runRef.current = run;
   }, [run]);
 
+  // Dépendance sur user?.id (primitive) : l'objet user change d'identité à
+  // chaque rechargement d'état — sans ça, chaque reload relançait le scan
+  // à +1,5 s, ce qui produisait une nouvelle opération, une nouvelle version,
+  // un nouveau reload… (boucle ~12 s mesurée : 332 ops/heure).
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     const scan = () => runRef.current(runAlertScan, {}, { silent: true });
     const first = setTimeout(scan, 1500);
     const t = setInterval(scan, SCAN_MS);
@@ -68,7 +73,7 @@ export default function AlertCenter() {
       clearTimeout(first);
       clearInterval(t);
     };
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     if (!user) return;

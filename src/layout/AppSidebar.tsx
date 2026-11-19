@@ -10,7 +10,7 @@ import { isMvpNavKey } from "@/lib/mvp";
 import { ChevronDownIcon, HorizontaLDots } from "@/icons";
 import { cn } from "@/utils";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSidebar } from "../context/SidebarContext";
 import { NAV_GROUPS, type NavItem } from "./navigation";
 import SidebarWidget from "./SidebarWidget";
@@ -50,10 +50,15 @@ const AppSidebar: React.FC = () => {
     return best;
   }, [groups, pathname]);
 
+  // Ouvrir le sous-menu de la route active UNIQUEMENT quand la route change.
+  // groups change d'identité à chaque rechargement d'état (can() recréé) —
+  // dépendre de lui refermait le sous-menu ouvert à la main toutes les ~10 s.
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
   useEffect(() => {
-    const parent = groups.flatMap((g) => g.items).find((it) => it.subItems?.some((s) => s.path === activeSub));
+    const parent = groupsRef.current.flatMap((g) => g.items).find((it) => it.subItems?.some((s) => s.path === activeSub));
     setOpenKey(parent?.key ?? null);
-  }, [activeSub, groups]);
+  }, [activeSub]);
 
   const renderItem = (nav: NavItem) => {
     const isOpen = openKey === nav.key;

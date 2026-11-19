@@ -49,3 +49,19 @@ export const MVP_HIDDEN_NAV_KEYS: readonly string[] = [
 ];
 
 export const isMvpNavKey = (key: string): boolean => !MVP_HIDDEN_NAV_KEYS.includes(key);
+
+/**
+ * Ops exécutées localement en mode connecté mais JAMAIS envoyées au serveur.
+ * Ce sont des dérivations/compteurs automatiques : si elles avançaient la
+ * version partagée, chaque poste forcerait tous les autres à recharger en
+ * boucle (mesuré : 332 ops/heure pour le seul scan d'alertes).
+ * Choix pour la version de test : pas d'envoi du tout — le scan d'alertes
+ * est redérivé localement par chaque poste, le suivi d'annonces et le
+ * marquage « lu » sont cosmétiques. Pour réactiver une op côté serveur,
+ * retirer son nom de la liste (la persistance dédiée viendra avec le backend).
+ */
+export const LOCAL_ONLY_API_OPS = new Set<string>([
+  "alertes.scanner",
+  "annonces.suivi",
+  "notifications.lire",
+]);

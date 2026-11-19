@@ -25,7 +25,7 @@ import {
   type AppointmentInput,
 } from "@/lib/services/appointmentsService";
 import type { Appointment } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   isOpen: boolean;
@@ -43,8 +43,13 @@ export default function AppointmentModal({ isOpen, onClose, appointment, default
   const [moveReason, setMoveReason] = useState("");
   const [note, setNote] = useState("");
 
+  // establishment/settings via ref : un rechargement d'état en arrière-plan
+  // (objets recréés) ne doit pas réinitialiser le RDV en cours de saisie.
+  const initRef = useRef({ establishment, settings: db.settings });
+  initRef.current = { establishment, settings: db.settings };
   useEffect(() => {
-    if (!isOpen || !establishment) return;
+    const { establishment: est0, settings } = initRef.current;
+    if (!isOpen || !est0) return;
     setForce(false);
     setMoveReason("");
     setNote("");
@@ -52,18 +57,18 @@ export default function AppointmentModal({ isOpen, onClose, appointment, default
       appointment
         ? { establishmentId: appointment.establishmentId, clientId: appointment.clientId, patientId: appointment.patientId, practitionerId: appointment.practitionerId, start: appointment.start, durationMin: appointment.durationMin, reason: appointment.reason, resource: appointment.resource, reminder: { ...appointment.reminder }, kind: appointment.kind }
         : {
-            establishmentId: establishment.id,
+            establishmentId: est0.id,
             clientId: "",
             patientId: "",
             practitionerId: "",
             start: defaultStart ?? "",
-            durationMin: establishment.slotMinutes,
+            durationMin: est0.slotMinutes,
             reason: "",
             resource: "",
-            reminder: { enabled: true, channel: db.settings.reminderDefaultChannel, offsetHours: db.settings.reminderDefaultHours },
+            reminder: { enabled: true, channel: settings.reminderDefaultChannel, offsetHours: settings.reminderDefaultHours },
           },
     );
-  }, [isOpen, appointment, defaultStart, establishment, db.settings]);
+  }, [isOpen, appointment, defaultStart]);
 
   const conflicts = useMemo(() => (v && v.start && v.practitionerId ? findConflicts(db, v, appointment?.id) : []), [db, v, appointment]);
   if (!v) return null;

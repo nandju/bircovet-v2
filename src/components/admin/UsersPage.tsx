@@ -22,7 +22,7 @@ import { formatDate } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { createUser, setUserActive, updateUser, type UserInput } from "@/lib/services/adminService";
 import type { RoleId, User } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as RoleId[]).filter((r) => r !== "editeur").map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
@@ -43,13 +43,17 @@ export default function UsersPage() {
   const [resetPwd, setResetPwd] = useState("");
   const [resetError, setResetError] = useState("");
   const [resetting, setResetting] = useState(false);
+  // establishments via ref : un rechargement d'état en arrière-plan ne doit
+  // pas réinitialiser le formulaire pendant la saisie.
+  const establishmentsRef = useRef(db.establishments);
+  establishmentsRef.current = db.establishments;
   useEffect(() => {
     if (modal.isOpen) {
-      setV(editing ? { name: editing.name, email: editing.email, roleId: editing.roleId, establishmentId: editing.establishmentId, title: editing.title, phone: editing.phone } : { name: "", email: "", roleId: "assistant", establishmentId: db.establishments[0]?.id ?? "", title: "", phone: "" });
+      setV(editing ? { name: editing.name, email: editing.email, roleId: editing.roleId, establishmentId: editing.establishmentId, title: editing.title, phone: editing.phone } : { name: "", email: "", roleId: "assistant", establishmentId: establishmentsRef.current[0]?.id ?? "", title: "", phone: "" });
       setTempPwd("");
       setFormError("");
     }
-  }, [modal.isOpen, editing, db.establishments]);
+  }, [modal.isOpen, editing]);
 
   const onSave = async () => {
     if (editing) {

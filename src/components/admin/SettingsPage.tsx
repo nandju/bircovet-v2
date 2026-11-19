@@ -14,7 +14,7 @@ import { formatXOF } from "@/lib/format";
 import { labelOf } from "@/lib/labels";
 import { updateSettings } from "@/lib/services/adminService";
 import type { Branding, Settings } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MAX_LOGO_SIZE = 400 * 1024; // 400 Ko — le logo est persisté en data URL dans les paramètres de l'organisation
 
@@ -23,10 +23,17 @@ export default function SettingsPage() {
   const { themeMode, setThemeMode } = useTheme();
   const [v, setV] = useState<Settings>(db.settings);
   const [expCats, setExpCats] = useState(db.settings.expenseCategories.join("\n"));
+  // Resynchroniser le formulaire quand les réglages CHANGENT VRAIMENT
+  // (empreinte JSON) — pas à chaque rechargement d'état, sinon la saisie
+  // en cours serait effacée par un simple nouvel objet identique.
+  const settingsRef = useRef(db.settings);
+  settingsRef.current = db.settings;
+  const settingsJson = JSON.stringify(db.settings);
   useEffect(() => {
-    setV(db.settings);
-    setExpCats(db.settings.expenseCategories.join("\n"));
-  }, [db.settings]);
+    const s = settingsRef.current;
+    setV(s);
+    setExpCats(s.expenseCategories.join("\n"));
+  }, [settingsJson]);
   const set = <K extends keyof Settings>(k: K, x: Settings[K]) => setV((s) => ({ ...s, [k]: x }));
   const branding = v.branding ?? DEFAULT_BRANDING;
   const setBranding = (patch: Partial<Branding>) => set("branding", { ...branding, ...patch });
