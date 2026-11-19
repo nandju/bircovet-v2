@@ -40,7 +40,8 @@ import { rulesOf } from "../src/lib/alerts";
 import { visibleTo } from "../src/lib/notifications";
 import { scaleSettings } from "../src/lib/farmProfile";
 import { receiptsOn, stockOut } from "../src/lib/daily";
-import { applyRoleSettings, can as canDo } from "../src/lib/permissions";
+import { applyRoleSettings, can as canDo, MODULE_LABELS, ACTION_LETTER } from "../src/lib/permissions";
+import { OPERATIONS } from "../src/lib/services/registry";
 import { saveCategories, setRolePermission } from "../src/lib/services/adminService";
 import { setFneNumber } from "../src/lib/services/invoicesService";
 import { billState, payablesSummary, paymentPlan } from "../src/lib/payables";
@@ -923,6 +924,19 @@ test("redactForRole : platform/demoPassword toujours retirés, salaires selon le
   const conf = db.users.find((u) => u.roleId === "confrere")!;
   const forConf = redactForRole(db, conf);
   check(forConf.patients.every((p) => (conf.sharedPatientIds ?? []).includes(p.id)), "le confrère ne voit que les dossiers partagés");
+});
+
+test("Registre OPERATIONS : chaque entrée pointe vers une fonction et un module/action valides", () => {
+  const validModules = new Set(Object.keys(MODULE_LABELS));
+  const validActions = new Set(Object.keys(ACTION_LETTER));
+  const names = Object.keys(OPERATIONS);
+  check(names.length > 0, "le registre ne doit pas être vide");
+  for (const name of names) {
+    const def = OPERATIONS[name];
+    check(typeof def.fn === "function", `${name} : fn doit être une fonction`);
+    check(validModules.has(def.module), `${name} : module inconnu "${def.module}"`);
+    check(validActions.has(def.action), `${name} : action inconnue "${def.action}"`);
+  }
 });
 
 console.log(`\n${passed} test(s) réussi(s), ${failed} échec(s).\n`);

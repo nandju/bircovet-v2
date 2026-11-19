@@ -19,6 +19,8 @@ import {
   ApiNetworkError, clearAccessToken, type PendingOp,
 } from "@/lib/api";
 import { OPERATIONS } from "@/lib/services/registry";
+import { markNotificationsRead as markNotificationsReadSvc } from "@/lib/services/notificationsService";
+import { isMvpModule } from "@/lib/mvp";
 import { isoLocal } from "@/lib/format";
 import { applyRoleSettings, can as canRole, type ModuleId, type PermAction } from "@/lib/permissions";
 import { applyCategoryList, applyLabelOverrides } from "@/lib/labels";
@@ -39,7 +41,6 @@ import { migrateToV20 } from "@/lib/migrateV20";
 import { migrateToV21 } from "@/lib/migrateV21";
 import { migrateToV22 } from "@/lib/migrateV22";
 import { migrateToV23 } from "@/lib/migrateV23";
-import { visibleTo } from "@/lib/notifications";
 import { migrateToV7 } from "@/lib/rural";
 import { SCHEMA_VERSION, createSeed } from "@/lib/seed";
 import { executeService, refreshDerived, type Service } from "@/lib/services/core";
@@ -342,6 +343,17 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         return r;
       }
       const now = nowIso();
+      if (apiMode && !OP_NAMES.get(svc)) {
+        // Mode connecté : une opération absente du registre ne peut PAS être
+        // enregistrée côté serveur — on refuse tout de suite plutôt que de
+        // laisser croire qu'elle a réussi puis la perdre au rechargement.
+        const r = { ok: false as const, error: "Cette fonction n'est pas encore disponible dans la version de test." };
+        toast.show("error", r.error);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[Cliva API] Opération absente du registre OPERATIONS : ajoutez-la dans src/lib/services/registry.ts pour l'activer.", svc.name || svc);
+        }
+        return r;
+      }
       // opKey : clé unique de l'opération (idempotence + ids déterministes, cf. executeService).
       const opKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `op-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
       const ctx: ActionCtx = { user, establishmentId: establishment.id, offline: session.offline, now, opKey };
@@ -351,14 +363,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         if (!opts?.silent && r.message) toast.show("success", r.message);
         if (apiMode) {
           // Mode connecté : envoi de l'opération au serveur (file ordonnée).
-          const name = OP_NAMES.get(svc);
-          if (name) {
-            queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
-            void pumpQueue();
-          } else if (process.env.NODE_ENV === "development") {
-            // Opération absente du registre : à ajouter dans src/lib/services/registry.ts.
-            console.warn(`[Cliva API] Opération absente du registre OPERATIONS : elle ne sera PAS envoyée au serveur (modification locale seulement). Ajoutez-la dans src/lib/services/registry.ts.`, svc.name || svc);
-          }
+          // OP_NAMES.get(svc) est garanti non nul (vérifié avant l'exécution).
+          const name = OP_NAMES.get(svc) as string;
+          queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
+          void pumpQueue();
         }
       } else if (!opts?.silent) toast.show("error", r.error);
       return r;
@@ -409,7 +417,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       today: nowIso().slice(0, 10),
       apiMode,
       run,
-      can: (m, a = "read") => canRole(user?.roleId, m, a),
+      can: (m, a = "read") => canRole(user?.roleId, m, a) && (!apiMode || isMvpModule(m)),
       login,
       logout: () => {
         if (apiMode) void apiLogout(); // révoque le cookie côté serveur
@@ -445,7 +453,9 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         persist(fresh);
         toast.show("success", "Environnement de démonstration réinitialisé : données initiales restaurées.");
       },
-      markNotificationsRead: () => persist({ ...db, notifications: db.notifications.map((n) => (user && visibleTo(n, user) && !n.readBy?.includes(user.id) ? { ...n, readBy: [...(n.readBy ?? []), user.id] } : n)) }),
+      markNotificationsRead: () => {
+        run(markNotificationsReadSvc, {}, { silent: true });
+      },
     };
   }, [db, session, user, establishment, run, login, saveSession, persist, toast]);
 

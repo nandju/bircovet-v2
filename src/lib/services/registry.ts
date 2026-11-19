@@ -17,11 +17,12 @@ import type { ModuleId, PermAction } from "../permissions";
 import {
   createUser, updateUser, setUserActive, setUserRole, createEstablishment, updateEstablishment,
   updateSettings, setRolePermission, resetRolePermissions, setRoleLabel, saveCategories, saveRevenueFamilies,
+  saveAnnouncement, moveAnnouncement, deleteAnnouncement, trackAnnouncement, recordLicencePayment,
 } from "./adminService";
 import { runAlertScan, saveAlertRules } from "./alertsService";
 import {
   createAppointment, decideAppointmentRequest, updateAppointment, cancelAppointment, confirmAppointment,
-  setQueueStatus, markHomeVisit, addUnavailability, removeUnavailability,
+  setQueueStatus, markHomeVisit, addUnavailability, removeUnavailability, saveApptApproval,
 } from "./appointmentsService";
 import { saveCashBox, assignToCashBox, addCashBoxEntry, removeCashBoxEntry } from "./cashBoxService";
 import { openCareCase, logCareFollowUp, closeCareCase, registerFarmAnimal } from "./careService";
@@ -35,7 +36,7 @@ import { counterSale } from "./counterSaleService";
 import { importDrugIndex, saveDrugIndexEntry, deleteDrugIndexEntry, removeDrugIndexSource } from "./drugIndexService";
 import {
   createFarm, updateFarm, addBuilding, addFarmLot, addHeadcount, addAnimalMovement, addFarmVisit,
-  addFarmIntervention, setFarmScale, setLotCount,
+  addFarmIntervention, setFarmScale, setLotCount, saveFarmScaleSettings,
 } from "./farmsService";
 import {
   createExpense, decideExpense, createAccountTransfer, closeCash, requestCredit, decideCredit,
@@ -54,8 +55,9 @@ import {
   createPatient, updatePatient, addVital, addVaccination, addPatientNote, transferOwnership, declareDeath,
   setPatientAlerts, addPatientPhoto, removePatientPhoto, addPatientExam,
 } from "./patientsService";
+import { markNotificationsRead } from "./notificationsService";
 import { recordPayment, allocatePayment } from "./paymentsService";
-import { logCalculation } from "./pharmaService";
+import { logCalculation, saveDraftMolecule, setMoleculeStatus } from "./pharmaService";
 import { trackCampaign } from "./platformService";
 import {
   createPrescription, createPrescriptionOrder, validatePrescriptionOrder, submitPrescription,
@@ -66,6 +68,10 @@ import {
   editProphyStep, addProphyStep, cancelProphyStep, closeProphyPlan, planToProgram,
 } from "./prophylaxisService";
 import { quickRegister } from "./quickRegisterService";
+import {
+  createSupplier, updateSupplier, createPurchaseOrder, updatePurchaseOrder, setPOStatus,
+  saveOrderReview, createReception, validateReception, checkReceptionLine, rejectReception,
+} from "./suppliersService";
 import { createTreatment, logDose, logDay, addEvolution, stopTreatment } from "./treatmentsService";
 
 /** N'importe quel service (contravariance : accepte tout Service<I, T>). */
@@ -91,6 +97,8 @@ export const OPERATIONS: Record<string, OperationDef> = {
   "agenda.indisponibilite.ajouter": op(addUnavailability, "agenda", "update"),
   "agenda.indisponibilite.retirer": op(removeUnavailability, "agenda", "update"),
   "accueil.enregistrementRapide": op(quickRegister, "clients", "create"),
+  "agenda.validationRdv": op(saveApptApproval, "admin", "admin"),
+  "notifications.lire": op(markNotificationsRead, "dashboard", "read"),
 
   /* ---- Clients ---- */
   "clients.creer": op(createClient, "clients", "create"),
@@ -162,6 +170,7 @@ export const OPERATIONS: Record<string, OperationDef> = {
   "exploitations.taille": op(setFarmScale, "exploitations", "update"),
   "exploitations.lot.effectif": op(setLotCount, "exploitations", "update"),
   "exploitations.animal": op(registerFarmAnimal, "exploitations", "update"),
+  "exploitations.reglagesTaille": op(saveFarmScaleSettings, "exploitations", "update"),
   "priseEnCharge.ouvrir": op(openCareCase, "exploitations", "create"),
   "priseEnCharge.suivre": op(logCareFollowUp, "exploitations", "update"),
   "priseEnCharge.cloturer": op(closeCareCase, "exploitations", "update"),
@@ -183,9 +192,23 @@ export const OPERATIONS: Record<string, OperationDef> = {
   "index.entree": op(saveDrugIndexEntry, "stock", "update"),
   "index.supprimerEntree": op(deleteDrugIndexEntry, "stock", "update"),
   "index.supprimerSource": op(removeDrugIndexSource, "stock", "admin"),
+  "index.molecule.brouillon": op(saveDraftMolecule, "stock", "update"),
+  "index.molecule.statut": op(setMoleculeStatus, "stock", "update"),
   "calculateur.journal": op(logCalculation, "stock", "create"),
   "alertes.scanner": op(runAlertScan, "stock", "read"),
   "alertes.regles": op(saveAlertRules, "stock", "update"),
+
+  /* ---- Achats : fournisseurs, commandes, réceptions (entrées de stock) ---- */
+  "achats.fournisseur.creer": op(createSupplier, "achats", "create"),
+  "achats.fournisseur.modifier": op(updateSupplier, "achats", "update"),
+  "achats.commande.creer": op(createPurchaseOrder, "achats", "create"),
+  "achats.commande.modifier": op(updatePurchaseOrder, "achats", "update"),
+  "achats.commande.statut": op(setPOStatus, "achats", "validate"),
+  "achats.commande.evaluation": op(saveOrderReview, "achats", "update"),
+  "achats.reception.creer": op(createReception, "achats", "create"),
+  "achats.reception.valider": op(validateReception, "achats", "validate"),
+  "achats.reception.ligne": op(checkReceptionLine, "achats", "update"),
+  "achats.reception.rejeter": op(rejectReception, "achats", "validate"),
 
   /* ---- Facturation & caisse ---- */
   "devis.creer": op(createQuote, "facturation", "create"),
@@ -232,6 +255,11 @@ export const OPERATIONS: Record<string, OperationDef> = {
   "admin.permissions.libelle": op(setRoleLabel, "admin", "admin"),
   "admin.categories": op(saveCategories, "admin", "admin"),
   "admin.famillesRecettes": op(saveRevenueFamilies, "admin", "admin"),
+  "admin.licence.paiement": op(recordLicencePayment, "admin", "admin"),
+  "annonces.enregistrer": op(saveAnnouncement, "admin", "admin"),
+  "annonces.deplacer": op(moveAnnouncement, "admin", "admin"),
+  "annonces.supprimer": op(deleteAnnouncement, "admin", "admin"),
+  "annonces.suivi": op(trackAnnouncement, "dashboard", "read"),
 
   /* ---- Annonces (seule opération platformService autorisée) ---- */
   "annonces.comptage": op(trackCampaign, "dashboard", "read"),

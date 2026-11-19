@@ -6,6 +6,7 @@ import { useDemo } from "@/context/DemoStoreContext";
 import { navBadges } from "./navBadges";
 import { SIMPLE_MENU, useDisplayPrefs } from "@/hooks/useDisplayPrefs";
 import { Link, usePathname } from "@/i18n/navigation";
+import { isMvpNavKey } from "@/lib/mvp";
 import { ChevronDownIcon, HorizontaLDots } from "@/icons";
 import { cn } from "@/utils";
 import { useTranslations } from "next-intl";
@@ -20,7 +21,7 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const t = useTranslations("sidebar");
-  const { can, db, user } = useDemo();
+  const { can, db, user, apiMode } = useDemo();
   const [{ simple }] = useDisplayPrefs();
   const badges = navBadges(db, user);
   const Badge = (k: string) => (badges[k] ? <span className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-error-500 px-1.5 text-[11px] leading-5 font-semibold text-white" aria-label={`${badges[k]} à traiter`}>{badges[k]}</span> : null);
@@ -35,9 +36,11 @@ const AppSidebar: React.FC = () => {
         items: g.items
           .filter((it) => can(it.module) || (it.orModule && can(it.orModule)) || it.subItems?.some((s) => s.module && can(s.module)))
           .filter((it) => !simple || SIMPLE_MENU.has(it.key))
-          .map((it) => ({ ...it, subItems: it.subItems?.filter((s) => can(s.module ?? it.module) && (!simple || SIMPLE_MENU.has(s.key))) })),
+          // Mode connecté : entrées hors périmètre MVP masquées (réglage unique MVP_HIDDEN_NAV_KEYS).
+          .filter((it) => !apiMode || isMvpNavKey(it.key))
+          .map((it) => ({ ...it, subItems: it.subItems?.filter((s) => can(s.module ?? it.module) && (!simple || SIMPLE_MENU.has(s.key)) && (!apiMode || isMvpNavKey(s.key))) })),
       })).filter((g) => g.items.length),
-    [can, simple],
+    [can, simple, apiMode],
   );
 
   /** Sous-élément actif = préfixe le plus long correspondant à l'URL. */
