@@ -37,7 +37,7 @@ interface AIAnswer {
   references: { label: string; href?: string }[];
 }
 
-export function generateAIResponse(db: DemoDB, prompt: string, todayIso?: string): AIAnswer {
+export function generateAIResponse(db: DemoDB, prompt: string, todayIso: string): AIAnswer {
   const p = normalize(prompt);
   for (const [re, what] of FORBIDDEN)
     if (re.test(p))
@@ -48,7 +48,7 @@ export function generateAIResponse(db: DemoDB, prompt: string, todayIso?: string
       };
 
   if (/anomal|incoheren|verifi/.test(p)) {
-    const today = todayIso ?? new Date().toISOString().slice(0, 10);
+    const today = todayIso;
     const late = db.invoices.filter((i) => i.status === "en_retard");
     const pendingRec = db.receptions.filter((r) => r.status === "proposee");
     const toValidate = db.consultations.filter((c) => c.status === "a_valider");

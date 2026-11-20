@@ -18,6 +18,7 @@ import {
   apiMode, apiLogin, apiLogout, apiMe, apiGetState, apiGetVersion, apiPostOp, apiRefresh,
   ApiNetworkError, clearAccessToken, type PendingOp,
 } from "@/lib/api";
+import { loadPendingOps, savePendingOps } from "@/lib/offlineQueue";
 import { OPERATIONS } from "@/lib/services/registry";
 import { markNotificationsRead as markNotificationsReadSvc } from "@/lib/services/notificationsService";
 import { isMvpModule, LOCAL_ONLY_API_OPS } from "@/lib/mvp";
@@ -145,6 +146,19 @@ function loadSession(): SessionState {
   }
 }
 
+/** UUID v4 — crypto.randomUUID si disponible, sinon vrai v4 via crypto.getRandomValues. */
+const newOpKey = (): string => {
+  const c = typeof crypto !== "undefined" ? crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  const b = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(b);
+  else for (let i = 0; i < 16; i += 1) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variante RFC 4122
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+};
+
 export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const [db, setDb] = useState<DemoDB | null>(null);
@@ -155,6 +169,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   // Mode connecté : dernière version serveur connue + file d'envoi ordonnée.
   const serverVersionRef = useRef(0);
   const queueRef = useRef<PendingOp[]>([]);
+  // File persistée en IndexedDB, UNE file PAR COMPTE (clé = accountId du
+  // jeton) : le rejeu ne concerne jamais les opérations d'un autre compte.
+  const queueKeyRef = useRef<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   // Garde-fou anti-rafale : horodatages des opérations marquées « auto »
   // (appels non déclenchés par un clic ou une saisie — intervalles, effets).
   const autoOpsRef = useRef<number[]>([]);
@@ -208,6 +226,12 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyServerState]);
 
+  /** Met à jour le compteur du bandeau + la copie IndexedDB après tout ajout/retrait. */
+  const touchQueue = useCallback(() => {
+    setPendingCount(queueRef.current.length);
+    if (queueKeyRef.current) void savePendingOps(queueKeyRef.current, [...queueRef.current]);
+  }, []);
+
   /** Mode connecté : envoie la file UNE opération à la fois, dans l'ordre. */
   const pumpQueue = useCallback(async () => {
     if (sendingRef.current) return;
@@ -223,6 +247,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await apiPostOp(op);
           queueRef.current.shift();
+          touchQueue();
           offlineToastRef.current = false;
           if (res.ok) okCount += 1;
           else {
@@ -242,6 +267,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
           }
           // Erreur HTTP (400/403…) : opération rejetée définitivement.
           queueRef.current.shift();
+          touchQueue();
           toast.show("error", e instanceof Error ? e.message : "Opération rejetée par le serveur.");
           await reloadState();
         }
@@ -262,7 +288,26 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       sendingRef.current = false;
     }
-  }, [reloadState, toast]);
+  }, [reloadState, toast, touchQueue]);
+
+  /**
+   * Mode connecté : restaure la file persistée de CE compte (IndexedDB) puis
+   * la rejoue dans l'ordre — mêmes opKey, le serveur ignore celles déjà
+   * reçues. L'état est ensuite rechargé UNE fois (la version a avancé de mes
+   * envois) : pas de boucle, pas de remontage de l'interface.
+   */
+  const replayQueue = useCallback(
+    async (accountId: string) => {
+      queueKeyRef.current = accountId;
+      const ops = await loadPendingOps(accountId);
+      if (ops.length === 0) return;
+      queueRef.current.push(...ops);
+      touchQueue();
+      await pumpQueue();
+      if (queueRef.current.length === 0) await reloadState();
+    },
+    [touchQueue, pumpQueue, reloadState],
+  );
 
   /** Mode connecté : session issue du compte API + état serveur. */
   const bootstrapApi = useCallback(async () => {
@@ -281,13 +326,14 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       const u = st.data.users.find((x) => x.id === me.userId);
       setMustChange(me.mustChangePassword);
       setSession({ userId: me.userId, establishmentId: u?.establishmentId ?? null, offline: false });
+      await replayQueue(me.id); // rejoue les envois interrompus de ce compte
     } catch {
       dbRef.current = createSeed(new Date());
       setDb(dbRef.current);
       setSession(EMPTY_SESSION);
       toast.show("error", "Impossible de charger les données depuis le serveur. Reconnectez-vous.");
     }
-  }, [applyServerState, toast]);
+  }, [applyServerState, toast, replayQueue]);
 
   useEffect(() => {
     if (apiMode) {
@@ -346,6 +392,16 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session.userId, reloadState]);
 
+  // Mode connecté : avertir avant de fermer l'onglet si des envois attendent.
+  useEffect(() => {
+    if (!apiMode) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (queueRef.current.length > 0) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+
   const user = useMemo(() => (db && session.userId ? (accountsOf(db).find((u) => u.id === session.userId && u.active) ?? null) : null), [db, session.userId]);
   const establishment = useMemo(
     () => (db ? (db.establishments.find((e) => e.id === (session.establishmentId ?? user?.establishmentId)) ?? db.establishments[0]) : null),
@@ -373,7 +429,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         return r;
       }
       // opKey : clé unique de l'opération (idempotence + ids déterministes, cf. executeService).
-      const opKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `op-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      const opKey = newOpKey();
       const ctx: ActionCtx = { user, establishmentId: establishment.id, offline: session.offline, now, opKey };
       const r = executeService(svc, current, ctx, input);
       if (r.ok) {
@@ -405,6 +461,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
             }
             if (allow) {
               queueRef.current.push({ opKey, name, input, clientNow: new Date().toISOString() });
+              touchQueue(); // bandeau + sauvegarde IndexedDB du compte
               void pumpQueue();
             }
           }
@@ -412,7 +469,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       } else if (!opts?.silent) toast.show("error", r.error);
       return r;
     },
-    [user, establishment, session.offline, persist, toast, pumpQueue],
+    [user, establishment, session.offline, persist, toast, pumpQueue, touchQueue],
   );
 
   const login = useCallback(
@@ -429,6 +486,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
             const u = st.data.users.find((x) => x.id === me.userId);
             setMustChange(r.mustChangePassword);
             setSession({ userId: me.userId, establishmentId: u?.establishmentId ?? null, offline: false });
+            await replayQueue(me.id); // rejoue les envois interrompus de ce compte
             return { ok: true };
           } catch {
             return { ok: false, error: "Connexion réussie mais chargement des données impossible. Réessayez." };
@@ -441,7 +499,7 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       saveSession({ userId: u.id, establishmentId: u.establishmentId, offline: false });
       return { ok: true };
     },
-    [saveSession, applyServerState],
+    [saveSession, applyServerState, replayQueue],
   );
 
   // Réglages du DG (droits, libellés) appliqués avant tout rendu.
@@ -463,6 +521,12 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       logout: () => {
         if (apiMode) void apiLogout(); // révoque le cookie côté serveur
         clearAccessToken();
+        // La copie IndexedDB reste sous l'ANCIEN compte (rejeu à sa prochaine
+        // connexion) — le prochain utilisateur de ce navigateur n'hérite
+        // jamais des envois en attente d'un autre.
+        queueRef.current = [];
+        queueKeyRef.current = null;
+        setPendingCount(0);
         saveSession(EMPTY_SESSION);
       },
       switchUser: (userId) => {
@@ -506,6 +570,14 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   // L'écran est rendu DANS le Provider : il utilise ClivaLogo → useDemo().
   return (
     <DemoStoreContext.Provider value={value}>
+      {apiMode && pendingCount > 0 && (
+        <div
+          role="status"
+          className="fixed bottom-4 start-1/2 z-999999 -translate-x-1/2 rounded-full bg-warning-500 px-4 py-2 text-theme-xs font-medium text-white shadow-theme-lg rtl:translate-x-1/2"
+        >
+          {pendingCount} action{pendingCount > 1 ? "s" : ""} en attente d&apos;envoi
+        </div>
+      )}
       {apiMode && mustChange && user ? (
         <ChangePasswordScreen
           onDone={() => {

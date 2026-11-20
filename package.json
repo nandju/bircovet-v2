@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:rules": "tsc scripts/test-business-rules.ts --outDir scripts/tmp --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict --resolveJsonModule && node scripts/tmp/scripts/test-business-rules.js"
+    "test:rules": "tsc scripts/test-business-rules.ts --outDir scripts/tmp --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict --resolveJsonModule && node scripts/tmp/scripts/test-business-rules.js",
+    "lint:api": "pnpm --filter api lint"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
@@ -16,7 +17,7 @@
     "apexcharts": "^7.1.0",
     "clsx": "^2.1.1",
     "flatpickr": "^4.6.13",
-    "next": "^16.3.4",
+    "next": "^16.4.6",
     "next-intl": "^4.14.2",
     "react": "^19.2.8",
     "react-apexcharts": "^2.1.1",
@@ -31,7 +32,7 @@
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
     "eslint": "^9.39.1",
-    "eslint-config-next": "^16.3.4",
+    "eslint-config-next": "^16.4.6",
     "postcss": "^8.5.6",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
